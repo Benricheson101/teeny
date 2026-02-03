@@ -14,7 +14,7 @@ pub enum TokenKind {
 
     Illegal(char),
 
-    EOF
+    EOF,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,9 +27,9 @@ pub struct Token {
 }
 
 impl Token {
-    /// Extracts the raw text for the token from the input string
+    /// Extract the raw text for the token from the input string
     pub fn lexeme<'a>(&self, source: &'a str) -> &'a str {
-        &source[self.start .. self.end]
+        &source[self.start..self.end]
     }
 }
 
@@ -71,17 +71,19 @@ impl<'a> Lexer<'a> {
         ch
     }
 
-    /// Eats all whitespace
     fn eat_whitespace(&mut self) {
-        while let Some(&ch) = self.source.peek() && ch.is_whitespace() {
+        while let Some(&ch) = self.source.peek()
+            && ch.is_whitespace()
+        {
             self.advance();
         }
     }
 
-    /// Reads a full non-negative integer from the stream
     fn read_integer(&mut self) -> u16 {
         let mut number_str = String::new();
-        while let Some(&ch) = self.source.peek() && ch.is_ascii_digit() {
+        while let Some(&ch) = self.source.peek()
+            && ch.is_ascii_digit()
+        {
             number_str.push(ch);
             self.advance();
         }
@@ -89,7 +91,6 @@ impl<'a> Lexer<'a> {
         number_str.parse().unwrap()
     }
 
-    /// Tokenizes the next complete token
     fn next_token(&mut self) -> Token {
         use TokenKind::*;
 
@@ -98,7 +99,6 @@ impl<'a> Lexer<'a> {
         let start_pos = self.pos;
         let start_line = self.line;
         let start_col = self.col;
-
 
         let kind = match self.source.peek() {
             Some(&ch) => match ch {
@@ -137,7 +137,7 @@ impl<'a> Lexer<'a> {
                 _ => {
                     let invalid = self.advance().unwrap();
                     Illegal(invalid)
-                }
+                },
             },
 
             None => EOF,
@@ -150,7 +150,6 @@ impl<'a> Lexer<'a> {
             start: start_pos,
             end: self.pos,
         }
-
     }
 }
 
@@ -159,7 +158,10 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.next_token() {
-            Token {kind: TokenKind::EOF, ..} => None,
+            Token {
+                kind: TokenKind::EOF,
+                ..
+            } => None,
             t @ _ => Some(t),
         }
     }

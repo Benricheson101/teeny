@@ -7,10 +7,7 @@ use parser::{Parser, precedence::Precedence};
 #[cfg(not(coverage))]
 fn main() {
     let expr = "5 * (2 + 3)";
-
-    // let expr = "+=";
-
-    // let expr = "1";
+    println!("{expr}");
 
     let lex = Lexer::new(expr);
     let tokens: Vec<_> = lex.collect();

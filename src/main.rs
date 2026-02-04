@@ -8,6 +8,10 @@ use parser::{Parser, precedence::Precedence};
 fn main() {
     let expr = "5 * (2 + 3)";
 
+    // let expr = "+=";
+
+    // let expr = "1";
+
     let lex = Lexer::new(expr);
     let tokens: Vec<_> = lex.collect();
     println!("{:#?}", &tokens);

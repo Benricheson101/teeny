@@ -25,7 +25,7 @@ impl Parser {
 
     fn advance(&mut self) -> &Token {
         let token = &self.source[self.cur];
-        if token.kind != TokenKind::EOF {
+        if token.kind != TokenKind::Eof {
             self.cur += 1;
         }
 

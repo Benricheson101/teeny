@@ -2,7 +2,7 @@ use crate::parser::TokenKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Precedence {
-    /// default precedence level. default precedence level for everything except binary/unary ops
+    /// default precedence level for everything except binary/unary ops
     Lowest,
     /// + -
     Sum,

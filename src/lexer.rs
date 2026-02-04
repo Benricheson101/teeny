@@ -4,17 +4,46 @@ use std::{iter::Peekable, str::Chars};
 pub enum TokenKind {
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
+    LeftBracket,
+    RightBracket,
 
     Minus,
     Plus,
     Star,
     Slash,
+    Bang,
+
+    BitAnd,
+    BitXor,
+    BitOr,
+    BitNot,
+    RightShift,
+    LeftShift,
+
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    BangEqual,
+
+    And,
+    Or,
+
+    PlusPlus,
+    MinusMinus,
+
+    Gt,
+    Gte,
+    Lt,
+    Lte,
+
+    Semi,
 
     Integer(u16),
 
-    Illegal(char),
-
-    EOF,
+    Eof,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,11 +65,13 @@ impl Token {
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     source: Peekable<Chars<'a>>,
+    source_string: &'a str,
 
     // used for error messages
     line: usize,
     col: usize,
 
+    start: usize,
     pos: usize,
     eof: bool,
 }
@@ -48,9 +79,11 @@ pub struct Lexer<'a> {
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
+            source_string: source,
             source: source.chars().peekable(),
             line: 1,
             col: 1,
+            start: 0,
             pos: 0,
             eof: false,
         }
@@ -73,6 +106,21 @@ impl<'a> Lexer<'a> {
         ch
     }
 
+    fn is_at_end(&mut self) -> bool {
+        self.source.peek().is_none()
+    }
+
+    fn next_matches(&mut self, c: char) -> bool {
+        if let Some(ch) = self.source.peek()
+            && *ch == c
+        {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
     fn eat_whitespace(&mut self) {
         while let Some(&ch) = self.source.peek()
             && ch.is_whitespace()
@@ -81,76 +129,95 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn read_integer(&mut self) -> u16 {
-        let mut number_str = String::new();
-        while let Some(&ch) = self.source.peek()
+    fn integer(&mut self) -> u16 {
+        while let Some(ch) = self.source.peek()
             && ch.is_ascii_digit()
         {
-            number_str.push(ch);
             self.advance();
         }
 
-        number_str.parse().unwrap()
+        self.source_string[self.start..self.pos].parse().unwrap()
     }
 
     fn read_token(&mut self) -> Token {
         use TokenKind::*;
 
-        self.eat_whitespace();
+        loop {
+            self.eat_whitespace();
 
-        let start_pos = self.pos;
-        let start_line = self.line;
-        let start_col = self.col;
+            self.start = self.pos;
 
-        let kind = match self.source.peek() {
-            Some(&ch) => match ch {
-                '+' => {
-                    self.advance();
-                    Plus
+            let start_line = self.line;
+            let start_col = self.col;
+
+            let ch = self.advance();
+
+            let kind = match ch {
+                Some(ch) => match ch {
+                    '(' => LeftParen,
+                    ')' => RightParen,
+                    '{' => LeftBrace,
+                    '}' => RightBrace,
+                    '[' => LeftBracket,
+                    ']' => RightBracket,
+                    ';' => Semi,
+                    '~' => BitNot,
+                    '^' => BitXor,
+
+                    '&' if self.next_matches('&') => And,
+                    '&' => BitAnd,
+
+                    '|' if self.next_matches('|') => Or,
+                    '|' => BitOr,
+
+                    '!' if self.next_matches('=') => BangEqual,
+                    '!' => Bang,
+
+                    '+' if self.next_matches('=') => PlusEqual,
+                    '+' if self.next_matches('+') => PlusPlus,
+                    '+' => Plus,
+
+                    '-' if self.next_matches('=') => MinusEqual,
+                    '-' if self.next_matches('-') => MinusMinus,
+                    '-' => Minus,
+
+                    '*' if self.next_matches('=') => StarEqual,
+                    '*' => Star,
+
+                    '/' if self.next_matches('/') => {
+                        while self.source.peek().is_some_and(|p| *p != '\n')
+                            && !self.is_at_end()
+                        {
+                            self.advance();
+                        }
+                        continue;
+                    },
+                    '/' if self.next_matches('=') => SlashEqual,
+                    '/' => Slash,
+
+                    '<' if self.next_matches('=') => Lte,
+                    '<' if self.next_matches('<') => LeftShift,
+                    '<' => Lt,
+
+                    '>' if self.next_matches('=') => Gte,
+                    '>' if self.next_matches('>') => RightShift,
+                    '>' => Gt,
+
+                    _ if ch.is_ascii_digit() => Integer(self.integer()),
+
+                    _ => panic!("illegal character: {ch}"),
                 },
 
-                '-' => {
-                    self.advance();
-                    Minus
-                },
+                None => Eof,
+            };
 
-                '*' => {
-                    self.advance();
-                    Star
-                },
-
-                '/' => {
-                    self.advance();
-                    Slash
-                },
-
-                '(' => {
-                    self.advance();
-                    LeftParen
-                },
-
-                ')' => {
-                    self.advance();
-                    RightParen
-                },
-
-                _ if ch.is_ascii_digit() => Integer(self.read_integer()),
-
-                _ => {
-                    let invalid = self.advance().unwrap();
-                    Illegal(invalid)
-                },
-            },
-
-            None => EOF,
-        };
-
-        Token {
-            kind,
-            line: start_line,
-            col: start_col,
-            start: start_pos,
-            end: self.pos,
+            return Token {
+                kind,
+                line: start_line,
+                col: start_col,
+                start: self.start,
+                end: self.pos,
+            };
         }
     }
 }
@@ -166,7 +233,7 @@ impl<'a> Iterator for Lexer<'a> {
         let token = self.read_token();
 
         // adds an EOF token instead of ending the iterator
-        if let TokenKind::EOF = token.kind {
+        if let TokenKind::Eof = token.kind {
             self.eof = true;
         }
 
@@ -197,7 +264,7 @@ mod tests {
         assert_eq!(t3.kind, TokenKind::Integer(5));
 
         let t4 = lex.next().unwrap();
-        assert_eq!(t4.kind, TokenKind::EOF);
+        assert_eq!(t4.kind, TokenKind::Eof);
 
         let t5 = lex.next();
         assert_eq!(t5, None);
@@ -257,7 +324,7 @@ mod tests {
                 end: 9,
             },
             Token {
-                kind: TokenKind::EOF,
+                kind: TokenKind::Eof,
                 line: 1,
                 col: 10,
                 start: 9,
@@ -270,5 +337,34 @@ mod tests {
         for i in 0..tokens.len() {
             assert_eq!(tokens[i], expected[i]);
         }
+    }
+
+    #[test]
+    fn skip_comments() {
+        let lex = Lexer::new("2 // 5 comment blah");
+        let tokens: Vec<_> = lex.collect();
+
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0].kind, TokenKind::Integer(2));
+        assert_eq!(tokens[1].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn tokenize_multi_char_operators() {
+        let lex = Lexer::new("+= ++ + -- *= >> <= <");
+        let tokens: Vec<_> = lex.collect();
+
+        assert_eq!(tokens[0].start, 0);
+        assert_eq!(tokens[0].end, 2);
+
+        assert_eq!(tokens[0].kind, TokenKind::PlusEqual);
+        assert_eq!(tokens[1].kind, TokenKind::PlusPlus);
+        assert_eq!(tokens[2].kind, TokenKind::Plus);
+        assert_eq!(tokens[3].kind, TokenKind::MinusMinus);
+        assert_eq!(tokens[4].kind, TokenKind::StarEqual);
+        assert_eq!(tokens[5].kind, TokenKind::RightShift);
+        assert_eq!(tokens[6].kind, TokenKind::Lte);
+        assert_eq!(tokens[7].kind, TokenKind::Lt);
+        assert_eq!(tokens[8].kind, TokenKind::Eof);
     }
 }

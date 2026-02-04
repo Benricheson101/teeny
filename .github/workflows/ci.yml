@@ -30,6 +30,7 @@ jobs:
           cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info --profile ci
 
       - uses: codecov/codecov-action@v5
+        if: ${{!cancelled()}}
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           report_type: coverage

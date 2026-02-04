@@ -27,7 +27,7 @@ jobs:
           locked: true
 
       - run: |
-          cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info
+          cargo llvm-cov nextest --all-features --workspace --lcov --output-path lcov.info --profile ci
 
       - uses: codecov/codecov-action@v4
         with:
@@ -46,5 +46,6 @@ jobs:
         if: ${{!cancelled()}}
         with:
           token: ${{secrets.CODECOV_TOKEN}}
+          report_type: test_results
           files: ./target/nextest/ci/junit.xml
           fail_ci_if_error: true

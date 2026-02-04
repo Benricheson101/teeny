@@ -42,6 +42,7 @@ pub struct Lexer<'a> {
     col: usize,
 
     pos: usize,
+    eof: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -51,6 +52,7 @@ impl<'a> Lexer<'a> {
             line: 1,
             col: 1,
             pos: 0,
+            eof: false,
         }
     }
 
@@ -91,7 +93,7 @@ impl<'a> Lexer<'a> {
         number_str.parse().unwrap()
     }
 
-    fn next_token(&mut self) -> Token {
+    fn read_token(&mut self) -> Token {
         use TokenKind::*;
 
         self.eat_whitespace();
@@ -157,13 +159,18 @@ impl<'a> Iterator for Lexer<'a> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_token() {
-            Token {
-                kind: TokenKind::EOF,
-                ..
-            } => None,
-            t @ _ => Some(t),
+        if self.eof {
+            return None;
         }
+
+        let token = self.read_token();
+
+        // adds an EOF token instead of ending the iterator
+        if let TokenKind::EOF = token.kind {
+            self.eof = true;
+        }
+
+        Some(token)
     }
 }
 
@@ -189,8 +196,11 @@ mod tests {
         let t3 = lex.next().unwrap();
         assert_eq!(t3.kind, TokenKind::Integer(5));
 
-        let t4 = lex.next();
-        assert_eq!(t4, None);
+        let t4 = lex.next().unwrap();
+        assert_eq!(t4.kind, TokenKind::EOF);
+
+        let t5 = lex.next();
+        assert_eq!(t5, None);
     }
 
     #[test]
@@ -216,5 +226,49 @@ mod tests {
 
         let t2 = lex.next().unwrap();
         assert_eq!(t2.lexeme(input), "200");
+    }
+
+    #[test]
+    fn tokenize_iterator() {
+        let input = "100 + 200";
+        let lex = Lexer::new(input);
+        let tokens: Vec<_> = lex.collect();
+
+        let expected = vec![
+            Token {
+                kind: TokenKind::Integer(100),
+                line: 1,
+                col: 1,
+                start: 0,
+                end: 3,
+            },
+            Token {
+                kind: TokenKind::Plus,
+                line: 1,
+                col: 5,
+                start: 4,
+                end: 5,
+            },
+            Token {
+                kind: TokenKind::Integer(200),
+                line: 1,
+                col: 7,
+                start: 6,
+                end: 9,
+            },
+            Token {
+                kind: TokenKind::EOF,
+                line: 1,
+                col: 10,
+                start: 9,
+                end: 9,
+            },
+        ];
+
+        assert_eq!(tokens.len(), expected.len());
+
+        for i in 0..tokens.len() {
+            assert_eq!(tokens[i], expected[i]);
+        }
     }
 }

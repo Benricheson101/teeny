@@ -1,8 +1,11 @@
 pub mod token;
+pub mod keywords;
 
 use std::{iter::Peekable, str::Chars};
 
 use token::{Token, TokenKind};
+
+use crate::lexer::keywords::KEYWORDS;
 
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
@@ -81,6 +84,19 @@ impl<'a> Lexer<'a> {
         self.source_string[self.start..self.pos].parse().unwrap()
     }
 
+    fn ident(&mut self) -> TokenKind {
+        while self.source.peek().is_some_and(|p| p.is_ascii_alphanumeric()) {
+            self.advance();
+        }
+
+        let txt = &self.source_string[self.start .. self.pos];
+        if let Some(kw) = KEYWORDS.get(txt) {
+            kw.to_owned()
+        } else {
+            TokenKind::Ident(txt.to_owned())
+        }
+    }
+
     fn read_token(&mut self) -> Token {
         use crate::lexer::token::TokenKind::*;
 
@@ -146,6 +162,10 @@ impl<'a> Lexer<'a> {
                     '>' => Gt,
 
                     _ if ch.is_ascii_digit() => Integer(self.integer()),
+
+                    _ if ch.is_ascii_alphabetic() => {
+                        self.ident()
+                    },
 
                     _ => panic!("illegal character: {ch}"),
                 },
@@ -308,5 +328,33 @@ mod tests {
         assert_eq!(tokens[6].kind, TokenKind::Lte);
         assert_eq!(tokens[7].kind, TokenKind::Lt);
         assert_eq!(tokens[8].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn tokenize_identifiers() {
+        let lex = Lexer::new("hello hi5");
+        let tokens: Vec<_> = lex.collect();
+
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens[0].kind, TokenKind::Ident("hello".to_string()));
+        assert_eq!(tokens[0].start, 0);
+        assert_eq!(tokens[0].end, 5);
+
+        assert_eq!(tokens[1].kind, TokenKind::Ident("hi5".to_string()));
+        assert_eq!(tokens[1].start, 6);
+        assert_eq!(tokens[1].end, 9);
+    }
+
+    #[test]
+    fn tokenize_keywords() {
+        let lex = Lexer::new("if else return for while");
+        let tokens: Vec<_> = lex.collect();
+
+        assert_eq!(tokens[0].kind, TokenKind::If);
+        assert_eq!(tokens[1].kind, TokenKind::Else);
+        assert_eq!(tokens[2].kind, TokenKind::Return);
+        assert_eq!(tokens[3].kind, TokenKind::For);
+        assert_eq!(tokens[4].kind, TokenKind::While);
+        assert_eq!(tokens[5].kind, TokenKind::Eof);
     }
 }

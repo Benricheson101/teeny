@@ -1,7 +1,7 @@
 use ast::{Expr, ExprKind, Span, Spanned};
 
 use crate::{
-    lexer::{Token, TokenKind},
+    lexer::token::{Token, TokenKind},
     parser::precedence::Precedence,
 };
 
@@ -52,6 +52,7 @@ impl Parser {
             TokenKind::Integer(val) => {
                 Spanned::new(ExprKind::Integer(*val), span)
             },
+
             TokenKind::Minus => {
                 let right = self.parse_expr(Precedence::Prefix);
                 let span = Span::merge(span, right.span);

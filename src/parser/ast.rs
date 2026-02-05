@@ -1,4 +1,4 @@
-use crate::lexer::TokenKind;
+use crate::lexer::token::TokenKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {

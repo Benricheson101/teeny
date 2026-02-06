@@ -85,11 +85,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn ident(&mut self) -> TokenKind {
-        while self
-            .source
-            .peek()
-            .is_some_and(|p| p.is_ascii_alphanumeric())
-        {
+        while self.source.peek().is_some_and(|p| {
+            p.is_ascii_alphanumeric() || *p == '_' || *p == '$'
+        }) {
             self.advance();
         }
 
@@ -362,5 +360,14 @@ mod tests {
         assert_eq!(tokens[3].kind, TokenKind::For);
         assert_eq!(tokens[4].kind, TokenKind::While);
         assert_eq!(tokens[5].kind, TokenKind::Eof);
+    }
+
+    #[test]
+    fn allow_underscore_dollar_idents() {
+        let mut lex = Lexer::new("my_var$");
+        assert_eq!(
+            lex.next().unwrap().kind,
+            TokenKind::Ident("my_var$".to_string())
+        );
     }
 }

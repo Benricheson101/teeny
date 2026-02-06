@@ -2,19 +2,21 @@ pub mod lexer;
 pub mod parser;
 
 use lexer::Lexer;
-use parser::{Parser, precedence::Precedence};
+use parser::Parser;
 
 #[cfg(not(coverage))]
 fn main() {
-    let expr = "mystruct.arr[x((x + 1) * 3) * 2]";
-    // let expr = r"
-    //     fn main() {
-    //         let x = 5;
-    //         let y = 10;
-    //         let z = x + y;
-    //         print(z);
-    //     }
-    // ";
+    let expr = r"
+        fn add(a: i16, b: i16) -> i16 {
+            return a + b;
+        }
+
+        fn main() {
+            let x = 0;
+            let y = 10;
+            let z = add(a, b);
+        }
+    ";
     println!("{expr}");
 
     let lex = Lexer::new(expr);
@@ -22,7 +24,7 @@ fn main() {
     println!("{:#?}", &tokens);
 
     let mut prs = Parser::new(tokens);
-    let ast = prs.parse_expr(Precedence::Lowest);
+    let ast = prs.parse();
 
     println!("{ast:#?}");
 }

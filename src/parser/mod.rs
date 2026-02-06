@@ -36,6 +36,10 @@ impl Parser {
         &self.source[self.cur]
     }
 
+    fn prev(&self) -> &Token {
+        &self.source[self.cur - 1]
+    }
+
     fn advance(&mut self) -> &Token {
         let token = &self.source[self.cur];
         if token.kind != TokenKind::Eof {
@@ -50,17 +54,6 @@ impl Parser {
             self.advance();
             return true;
         }
-        false
-    }
-
-    fn matches_any(&mut self, types: &[TokenKind]) -> bool {
-        for ty in types {
-            if self.check(ty) {
-                self.advance();
-                return true;
-            }
-        }
-
         false
     }
 
@@ -154,6 +147,7 @@ impl Parser {
             TokenKind::LeftBrace => self.parse_block(),
             TokenKind::Return => self.parse_return(),
             TokenKind::Fn => self.parse_fn_decl(),
+            TokenKind::Struct => self.parse_struct_decl(),
             _ => self.parse_expr_stmt(),
         }
     }
@@ -314,17 +308,29 @@ impl Parser {
 
         let mut params = Vec::new();
 
+        let mut is_first = true;
         if !self.check(&TokenKind::RightParen) {
             loop {
-                let name = self.consume_ident();
-                self.consume(TokenKind::Colon);
-                let ty = self.parse_type();
+                // if is_first && self.matches(TokenKind::SelfKw) {
 
-                params.push((name, ty));
+                if is_first
+                    && self.peek().kind == TokenKind::Ident("self".to_string())
+                {
+                    params.push(("self".to_string(), Type::SelfType));
+                    is_first = false;
+                    self.advance();
+                } else {
+                    let name = self.consume_ident();
+                    self.consume(TokenKind::Colon);
+                    let ty = self.parse_type();
+
+                    params.push((name, ty));
+                }
 
                 if !self.check(&TokenKind::Comma) {
                     break;
                 }
+                self.advance();
             }
         }
         self.consume(TokenKind::RightParen);
@@ -347,6 +353,46 @@ impl Parser {
             },
             span,
         )
+    }
+
+    fn parse_struct_decl(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::Struct);
+        let name = self.consume_ident();
+        self.consume(TokenKind::LeftBrace);
+
+        let mut members = Vec::new();
+
+        while !self.check(&TokenKind::RightBrace) {
+            if self.check(&TokenKind::Fn) {
+                members.push(self.parse_fn_decl());
+            } else {
+                let start = self.peek().start;
+
+                let field_name = self.consume_ident();
+                self.consume(TokenKind::Colon);
+                let field_type = self.parse_type();
+
+                let end = self.prev().end;
+                let span = Span::new(start, end);
+
+                // FIXME: make it so trailing comma is allowed but commas are otherwise required
+                self.matches(TokenKind::Comma);
+
+                members.push(Stmt::new(
+                    StmtKind::StructField {
+                        name: field_name,
+                        ty: field_type,
+                    },
+                    span,
+                ));
+            }
+        }
+
+        let end = self.consume(TokenKind::RightBrace);
+
+        let span = Span::new(start.start, end.end);
+
+        Stmt::new(StmtKind::Struct { name, members }, span)
     }
 
     // -- pratt parsing for expressions --
@@ -889,12 +935,15 @@ mod tests {
         assert_eq!(params.len(), 0);
         assert_eq!(return_type, None);
 
-        let stmt = parse_stmt("fn main(a: i16) {}");
+        let stmt = parse_stmt("fn main(a: i16, b: i16) {}");
         let StmtKind::Fn { params, .. } = stmt.node else {
             panic!("not Fn");
         };
 
-        assert_eq!(params, vec![("a".to_string(), Type::I16)]);
+        assert_eq!(
+            params,
+            vec![("a".to_string(), Type::I16), ("b".to_string(), Type::I16)]
+        );
 
         let stmt = parse_stmt("fn main(a: i16) -> *i16 {}");
         let StmtKind::Fn { return_type, .. } = stmt.node else {
@@ -902,5 +951,28 @@ mod tests {
         };
 
         assert_eq!(return_type, Some(Type::Pointer(Box::new(Type::I16))));
+    }
+
+    #[test]
+    fn parse_struct_decl() {
+        let stmt = parse_stmt(
+            "
+            struct User {
+                name: string,
+                id: i16,
+
+                fn get_id(self) {
+                    return self.id;
+                }
+            }
+        ",
+        );
+
+        let StmtKind::Struct { name, members } = stmt.node else {
+            panic!("not struct");
+        };
+
+        assert_eq!(name, "User".to_string());
+        assert_eq!(members.len(), 3);
     }
 }

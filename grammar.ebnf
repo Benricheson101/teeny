@@ -16,16 +16,15 @@ param = IDENTIFIER ":" type ;
 struct_decl = "struct" IDENTIFIER "{" { struct_member } "}" ;
 
 struct_member = field_decl
-                | function_decl ;
+              | function_decl ;
 
-(* Fields usually have a trailing comma, but the last one might not *)
 field_decl = IDENTIFIER ":" type [ "," ] ;
 
 type = "i16"
      | "bool"
-     | IDENTIFIER          (* Struct Name *)
-     | "*" type            (* Pointer *)
-     | "[" type ";" INTEGER "]" ; (* Array *)
+     | IDENTIFIER
+     | "*" type
+     | "[" type ";" INTEGER "]" ;
 
 (*
 vim: ft=ebnf

@@ -100,6 +100,7 @@ pub enum Type {
     Pointer(Box<Type>),
     Array { ty: Box<Type>, size: u16 },
     Struct(String),
+    SelfType,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -133,6 +134,16 @@ pub enum StmtKind {
         params: Vec<(String, Type)>,
         return_type: Option<Type>,
         body: Box<Stmt>,
+    },
+
+    Struct {
+        name: String,
+        members: Vec<Stmt>,
+    },
+
+    StructField {
+        name: String,
+        ty: Type,
     },
 }
 

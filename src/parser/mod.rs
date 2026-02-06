@@ -535,7 +535,6 @@ impl Parser {
             | TokenKind::SlashEqual => {
                 let value = self.parse_expr(Precedence::Lowest)?;
                 if !matches!(lhs.node, ExprKind::Ident(_)) {
-                    // panic!("Assigning to a non-variable: {lhs:?}");
                     return Err(ParseError {
                         message: format!(
                             "Assigning to a non-variable: {lhs:?}"

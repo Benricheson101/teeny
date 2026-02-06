@@ -45,7 +45,7 @@ pub enum TokenKind {
     Comma,
     Dot,
 
-    Integer(u16),
+    Integer(i16),
 
     // keywords
     Fn,
@@ -62,6 +62,10 @@ pub enum TokenKind {
     False,
 
     Ident(String),
+
+    // types
+    Bool,
+    I16,
 
     Eof,
 }

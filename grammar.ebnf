@@ -1,0 +1,20 @@
+program = { decl } ;
+
+decl = var_decl
+     | fn_decl;
+
+block = "{" { stmt } "}"}
+
+var_decl = ("let" | "const") IDENTIFIER [ ":" type ] "=" expression ";" ;
+
+fn_decl = "fn" IDENTIFIER "(" [ param_list ] ")" [ "->" type ] block ;
+
+type = "i16"
+     | "bool"
+     | IDENTIFIER          (* Struct Name *)
+     | "*" type            (* Pointer *)
+     | "[" type ";" INTEGER "]" ; (* Array *)
+
+(*
+vim: ft=ebnf
+*)

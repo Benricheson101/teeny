@@ -33,7 +33,7 @@ impl<T> Spanned<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
-    Integer(u16),
+    Integer(i16),
     Bool(bool),
     Ident(String),
     // String(String), // TODO: do we need this?
@@ -78,3 +78,24 @@ pub enum ExprKind {
 }
 
 pub type Expr = Spanned<ExprKind>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+    I16,
+    Bool,
+    Pointer(Box<Type>),
+    Array { ty: Box<Type>, size: u16 },
+    Struct(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StmtKind {
+    VarDecl {
+        name: String,
+        ty: Option<Type>,
+        value: Expr,
+        mutable: bool,
+    },
+}
+
+pub type Stmt = Spanned<StmtKind>;

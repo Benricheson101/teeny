@@ -74,7 +74,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn integer(&mut self) -> u16 {
+    fn integer(&mut self) -> i16 {
         while let Some(ch) = self.source.peek()
             && ch.is_ascii_digit()
         {

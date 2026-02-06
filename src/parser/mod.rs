@@ -2,7 +2,10 @@ use ast::{Expr, ExprKind, Span, Spanned};
 
 use crate::{
     lexer::token::{Token, TokenKind},
-    parser::precedence::Precedence,
+    parser::{
+        ast::{Stmt, Type},
+        precedence::Precedence,
+    },
 };
 
 pub mod ast;
@@ -30,6 +33,37 @@ impl Parser {
         }
 
         token
+    }
+
+    fn matches(&mut self, ty: TokenKind) -> bool {
+        if self.check(&ty) {
+            self.advance();
+            return true;
+        }
+        false
+    }
+
+    fn matches_any(&mut self, types: &[TokenKind]) -> bool {
+        for ty in types {
+            if self.check(ty) {
+                self.advance();
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn check(&self, ty: &TokenKind) -> bool {
+        if self.is_at_end() {
+            return false;
+        }
+
+        &self.peek().kind == ty
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.peek().kind == TokenKind::Eof
     }
 
     fn consume(&mut self, expected: TokenKind) -> Token {
@@ -61,6 +95,21 @@ impl Parser {
         }
     }
 
+    fn consume_integer(&mut self) -> i16 {
+        let token = self.peek();
+
+        match token.kind {
+            TokenKind::Integer(val) => {
+                self.advance();
+                val
+            },
+            _ => panic!(
+                "Expected integer, got {:?} at line {}",
+                token.kind, token.line
+            ),
+        }
+    }
+
     fn parse_expr_list(&mut self, term: TokenKind) -> Vec<Expr> {
         let mut args = Vec::new();
 
@@ -83,9 +132,38 @@ impl Parser {
         args
     }
 
-    // -- pratt parsing --
+    // -- recursive descent parser for statements --
 
-    pub fn parse_expr(&mut self, bp: Precedence) -> Expr {
+    pub(crate) fn parse_type(&mut self) -> Type {
+        if self.matches(TokenKind::Star) {
+            return Type::Pointer(Box::new(self.parse_type()));
+        }
+
+        if self.matches(TokenKind::LeftBracket) {
+            let elem_type = self.parse_type();
+            self.consume(TokenKind::Semi);
+
+            let size = self.consume_integer();
+
+            self.consume(TokenKind::RightBracket);
+
+            return Type::Array {
+                ty: Box::new(elem_type),
+                size: size as u16,
+            };
+        }
+
+        match &self.advance().kind {
+            TokenKind::I16 => Type::I16,
+            TokenKind::Bool => Type::Bool,
+            TokenKind::Ident(name) => Type::Struct(name.clone()),
+            t @ _ => panic!("Expected type, got {:?}", t),
+        }
+    }
+
+    // -- pratt parsing for expressions --
+
+    pub(crate) fn parse_expr(&mut self, bp: Precedence) -> Expr {
         let mut left = self.parse_prefix();
 
         while bp < Precedence::of(&self.peek().kind) {
@@ -240,6 +318,13 @@ mod tests {
         let tokens: Vec<_> = lex.collect();
         let mut parser = Parser::new(tokens);
         parser.parse_expr(Precedence::Lowest)
+    }
+
+    fn parse_type(input: &str) -> Type {
+        let lex = Lexer::new(input);
+        let tokens: Vec<_> = lex.collect();
+        let mut parser = Parser::new(tokens);
+        parser.parse_type()
     }
 
     #[test]
@@ -404,5 +489,23 @@ mod tests {
             Expr::new(ExprKind::Integer(2), Span::new(4, 5)),
         ]);
         assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_types() {
+        let ty = parse_type("i16");
+        assert_eq!(ty, Type::I16);
+
+        let ty = parse_type("bool");
+        assert_eq!(ty, Type::Bool);
+
+        let ty = parse_type("[i16; 15]");
+        assert_eq!(
+            ty,
+            Type::Array {
+                ty: Box::new(Type::I16),
+                size: 15
+            }
+        );
     }
 }

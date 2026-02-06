@@ -149,6 +149,10 @@ impl Parser {
 
         match token.kind {
             TokenKind::Let | TokenKind::Const => self.parse_var_decl(),
+            TokenKind::If => self.parse_if(),
+            TokenKind::While => self.parse_while(),
+            TokenKind::LeftBrace => self.parse_block(),
+            TokenKind::Return => self.parse_return(),
             _ => self.parse_expr_stmt(),
         }
     }
@@ -186,6 +190,83 @@ impl Parser {
             TokenKind::Ident(name) => Type::Struct(name.clone()),
             t @ _ => panic!("Expected type, got {:?}", t),
         }
+    }
+
+    fn parse_block(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::LeftBrace);
+
+        let mut stmts = Vec::new();
+        while !self.check(&TokenKind::RightBrace) {
+            stmts.push(self.parse_stmt());
+        }
+
+        let end = self.consume(TokenKind::RightBrace);
+
+        let span = Span::new(start.start, end.end);
+
+        Stmt::new(StmtKind::Block(stmts), span)
+    }
+
+    fn parse_if(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::If);
+
+        self.consume(TokenKind::LeftParen);
+        let cond = self.parse_expr(Precedence::Lowest);
+        self.consume(TokenKind::RightParen);
+
+        let then_branch = Box::new(self.parse_stmt());
+
+        let else_branch = if self.matches(TokenKind::Else) {
+            Some(Box::new(self.parse_stmt()))
+        } else {
+            None
+        };
+
+        let end_pos = if let Some(ref else_branch) = else_branch {
+            else_branch.span.end
+        } else {
+            then_branch.span.end
+        };
+
+        let span = Span::new(start.start, end_pos);
+
+        Stmt::new(
+            StmtKind::If {
+                cond,
+                then_branch,
+                else_branch,
+            },
+            span,
+        )
+    }
+
+    fn parse_while(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::While);
+
+        self.consume(TokenKind::LeftParen);
+        let cond = self.parse_expr(Precedence::Lowest);
+        self.consume(TokenKind::RightParen);
+
+        let body = Box::new(self.parse_stmt());
+
+        let span = Span::new(start.start, body.span.end);
+
+        Stmt::new(StmtKind::While { cond, body }, span)
+    }
+
+    fn parse_return(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::Return);
+
+        let val = if self.check(&TokenKind::Semi) {
+            None
+        } else {
+            Some(self.parse_expr(Precedence::Lowest))
+        };
+
+        let end = self.consume(TokenKind::Semi);
+        let span = Span::new(start.start, end.end);
+
+        Stmt::new(StmtKind::Return(val), span)
     }
 
     fn parse_var_decl(&mut self) -> Stmt {
@@ -252,6 +333,30 @@ impl Parser {
                 Spanned::new(ExprKind::Ident(name.clone()), span)
             },
 
+            TokenKind::PlusPlus => {
+                let rhs = self.parse_expr(Precedence::Prefix);
+                let span = Span::merge(span, rhs.span);
+                Expr::new(
+                    ExprKind::Increment {
+                        prefix: true,
+                        expr: Box::new(rhs),
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::MinusMinus => {
+                let rhs = self.parse_expr(Precedence::Prefix);
+                let span = Span::merge(span, rhs.span);
+                Expr::new(
+                    ExprKind::Decrement {
+                        prefix: true,
+                        expr: Box::new(rhs),
+                    },
+                    span,
+                )
+            },
+
             TokenKind::LeftBracket => {
                 let elems = self.parse_expr_list(TokenKind::RightBracket);
                 Expr::new(ExprKind::Array(elems), span)
@@ -306,6 +411,28 @@ impl Parser {
                     ExprKind::Assignment {
                         target: Box::new(lhs),
                         value: Box::new(value),
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::PlusPlus => {
+                let span = Span::new(lhs.span.start, op_token.end);
+                Expr::new(
+                    ExprKind::Increment {
+                        prefix: false,
+                        expr: Box::new(lhs),
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::MinusMinus => {
+                let span = Span::new(lhs.span.start, op_token.end);
+                Expr::new(
+                    ExprKind::Decrement {
+                        prefix: false,
+                        expr: Box::new(lhs),
                     },
                     span,
                 )
@@ -555,6 +682,52 @@ mod tests {
     }
 
     #[test]
+    fn parse_prefix_incr_decr() {
+        let expr = parse_expr("++x");
+        let expected = ExprKind::Increment {
+            prefix: true,
+            expr: Box::new(Expr::new(
+                ExprKind::Ident("x".to_string()),
+                Span::new(2, 3),
+            )),
+        };
+        assert_eq!(expr.node, expected);
+
+        let expr = parse_expr("--x");
+        let expected = ExprKind::Decrement {
+            prefix: true,
+            expr: Box::new(Expr::new(
+                ExprKind::Ident("x".to_string()),
+                Span::new(2, 3),
+            )),
+        };
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_postfix_incr_decr() {
+        let expr = parse_expr("x++");
+        let expected = ExprKind::Increment {
+            prefix: false,
+            expr: Box::new(Expr::new(
+                ExprKind::Ident("x".to_string()),
+                Span::new(0, 1),
+            )),
+        };
+        assert_eq!(expr.node, expected);
+
+        let expr = parse_expr("x--");
+        let expected = ExprKind::Decrement {
+            prefix: false,
+            expr: Box::new(Expr::new(
+                ExprKind::Ident("x".to_string()),
+                Span::new(0, 1),
+            )),
+        };
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
     fn parse_var_decl() {
         let s = parse_stmt("let x = 5;");
         assert_eq!(
@@ -602,5 +775,55 @@ mod tests {
                 mutable: true,
             }
         );
+    }
+
+    #[test]
+    fn parse_if() {
+        let stmt = parse_stmt("if (1) something();");
+        assert!(matches!(
+            stmt.node,
+            StmtKind::If {
+                else_branch: None,
+                ..
+            }
+        ));
+
+        let stmt = parse_stmt("if (x > 5) { something(); }");
+        assert!(matches!(
+            stmt.node,
+            StmtKind::If {
+                else_branch: None,
+                ..
+            }
+        ));
+
+        let stmt = parse_stmt("if (x > 5) something(); else something_else();");
+        assert!(matches!(
+            stmt.node,
+            StmtKind::If {
+                else_branch: Some(_),
+                ..
+            }
+        ));
+
+        let stmt = parse_stmt(
+            "if (x > 5) { something(); } else { something_else(); }",
+        );
+        assert!(matches!(
+            stmt.node,
+            StmtKind::If {
+                else_branch: Some(_),
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_while() {
+        let stmt = parse_stmt("while (x > 5) x--;");
+        assert!(matches!(stmt.node, StmtKind::While { .. }));
+
+        let stmt = parse_stmt("while (x > 5) { x--; }");
+        assert!(matches!(stmt.node, StmtKind::While { .. }));
     }
 }

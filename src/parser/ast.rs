@@ -39,6 +39,20 @@ pub enum ExprKind {
     // String(String), // TODO: do we need this?
     Array(Vec<Expr>),
 
+    /// `x++`, `++x`
+    Increment {
+        /// true when `++x`
+        prefix: bool,
+        expr: Box<Expr>,
+    },
+
+    /// `x--`, `--x`
+    Decrement {
+        /// true when `--x`
+        prefix: bool,
+        expr: Box<Expr>,
+    },
+
     /// An expression with one operand (e.g. `-5`)
     Unary {
         op: TokenKind,
@@ -98,6 +112,21 @@ pub enum StmtKind {
     },
 
     Expr(Expr),
+
+    Block(Vec<Stmt>),
+
+    Return(Option<Expr>),
+
+    If {
+        cond: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+    },
+
+    While {
+        cond: Expr,
+        body: Box<Stmt>,
+    },
 }
 
 pub type Stmt = Spanned<StmtKind>;

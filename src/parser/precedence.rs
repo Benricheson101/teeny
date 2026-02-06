@@ -26,9 +26,9 @@ pub enum Precedence {
     Sum,
     /// * /
     Product,
-    /// -N ++ --
+    /// -N
     Prefix,
-    /// my_fn(x) [] .
+    /// my_fn(x) [] . ++ --
     Call,
 }
 
@@ -49,7 +49,9 @@ impl Precedence {
             LeftShift | RightShift => Self::BitShift,
             Plus | Minus => Self::Sum,
             Star | Slash | Percent => Self::Product,
-            LeftParen | Dot | LeftBracket => Precedence::Call,
+            LeftParen | Dot | LeftBracket | PlusPlus | MinusMinus => {
+                Precedence::Call
+            },
             _ => Self::Lowest,
         }
     }

@@ -96,6 +96,8 @@ pub enum StmtKind {
         value: Expr,
         mutable: bool,
     },
+
+    Expr(Expr),
 }
 
 pub type Stmt = Spanned<StmtKind>;

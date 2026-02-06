@@ -123,6 +123,7 @@ impl<'a> Lexer<'a> {
                     ';' => Semi,
                     ',' => Comma,
                     '.' => Dot,
+                    ':' => Colon,
                     '~' => BitNot,
                     '^' => BitXor,
                     '=' if self.next_matches('=') => Equality,

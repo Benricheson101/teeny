@@ -3,7 +3,7 @@ use ast::{Expr, ExprKind, Span, Spanned};
 use crate::{
     lexer::token::{Token, TokenKind},
     parser::{
-        ast::{Stmt, Type},
+        ast::{Stmt, StmtKind, Type},
         precedence::Precedence,
     },
 };
@@ -20,6 +20,16 @@ pub struct Parser {
 impl Parser {
     pub fn new(source: Vec<Token>) -> Self {
         Self { source, cur: 0 }
+    }
+
+    pub fn parse(&mut self) -> Vec<Stmt> {
+        let mut stmts = Vec::new();
+
+        while !self.is_at_end() {
+            stmts.push(self.parse_stmt());
+        }
+
+        stmts
     }
 
     fn peek(&self) -> &Token {
@@ -134,7 +144,24 @@ impl Parser {
 
     // -- recursive descent parser for statements --
 
-    pub(crate) fn parse_type(&mut self) -> Type {
+    pub(crate) fn parse_stmt(&mut self) -> Stmt {
+        let token = self.peek();
+
+        match token.kind {
+            TokenKind::Let | TokenKind::Const => self.parse_var_decl(),
+            _ => self.parse_expr_stmt(),
+        }
+    }
+
+    fn parse_expr_stmt(&mut self) -> Stmt {
+        let expr = self.parse_expr(Precedence::Lowest);
+        let semi = self.consume(TokenKind::Semi);
+        let span = Span::new(expr.span.start, semi.end);
+
+        Stmt::new(StmtKind::Expr(expr), span)
+    }
+
+    fn parse_type(&mut self) -> Type {
         if self.matches(TokenKind::Star) {
             return Type::Pointer(Box::new(self.parse_type()));
         }
@@ -159,6 +186,42 @@ impl Parser {
             TokenKind::Ident(name) => Type::Struct(name.clone()),
             t @ _ => panic!("Expected type, got {:?}", t),
         }
+    }
+
+    fn parse_var_decl(&mut self) -> Stmt {
+        let start = self.peek().start;
+        let is_mutable = if self.peek().kind == TokenKind::Let {
+            self.advance();
+            true
+        } else {
+            self.consume(TokenKind::Const);
+            false
+        };
+
+        let name = self.consume_ident();
+
+        let ty = if self.peek().kind == TokenKind::Colon {
+            self.advance();
+            Some(self.parse_type())
+        } else {
+            None
+        };
+
+        self.consume(TokenKind::Equal);
+
+        let val = self.parse_expr(Precedence::Lowest);
+        let semi = self.consume(TokenKind::Semi);
+        let span = Span::new(start, semi.end);
+
+        Stmt::new(
+            StmtKind::VarDecl {
+                name,
+                ty,
+                value: val,
+                mutable: is_mutable,
+            },
+            span,
+        )
     }
 
     // -- pratt parsing for expressions --
@@ -320,11 +383,11 @@ mod tests {
         parser.parse_expr(Precedence::Lowest)
     }
 
-    fn parse_type(input: &str) -> Type {
+    fn parse_stmt(input: &str) -> Stmt {
         let lex = Lexer::new(input);
         let tokens: Vec<_> = lex.collect();
         let mut parser = Parser::new(tokens);
-        parser.parse_type()
+        parser.parse()[0].clone()
     }
 
     #[test]
@@ -492,19 +555,51 @@ mod tests {
     }
 
     #[test]
-    fn parse_types() {
-        let ty = parse_type("i16");
-        assert_eq!(ty, Type::I16);
-
-        let ty = parse_type("bool");
-        assert_eq!(ty, Type::Bool);
-
-        let ty = parse_type("[i16; 15]");
+    fn parse_var_decl() {
+        let s = parse_stmt("let x = 5;");
         assert_eq!(
-            ty,
-            Type::Array {
-                ty: Box::new(Type::I16),
-                size: 15
+            s.node,
+            StmtKind::VarDecl {
+                ty: None,
+                name: "x".to_string(),
+                value: Expr::new(ExprKind::Integer(5), Span::new(8, 9)),
+                mutable: true,
+            }
+        );
+
+        let s = parse_stmt("let x: i16 = 5;");
+        assert_eq!(
+            s.node,
+            StmtKind::VarDecl {
+                ty: Some(Type::I16),
+                name: "x".to_string(),
+                value: Expr::new(ExprKind::Integer(5), Span::new(13, 14)),
+                mutable: true,
+            }
+        );
+
+        let s = parse_stmt("let x: [i16; 3] = 5;");
+        assert_eq!(
+            s.node,
+            StmtKind::VarDecl {
+                ty: Some(Type::Array {
+                    ty: Box::new(Type::I16),
+                    size: 3,
+                }),
+                name: "x".to_string(),
+                value: Expr::new(ExprKind::Integer(5), Span::new(18, 19)),
+                mutable: true,
+            }
+        );
+
+        let s = parse_stmt("let x: *i16 = 5;");
+        assert_eq!(
+            s.node,
+            StmtKind::VarDecl {
+                ty: Some(Type::Pointer(Box::new(Type::I16))),
+                name: "x".to_string(),
+                value: Expr::new(ExprKind::Integer(5), Span::new(14, 15)),
+                mutable: true,
             }
         );
     }

@@ -61,10 +61,10 @@ impl Parser {
         }
     }
 
-    fn parse_call_args(&mut self) -> Vec<Expr> {
+    fn parse_expr_list(&mut self, term: TokenKind) -> Vec<Expr> {
         let mut args = Vec::new();
 
-        if self.peek().kind == TokenKind::RightParen {
+        if self.peek().kind == term {
             self.advance();
             return args;
         }
@@ -78,7 +78,7 @@ impl Parser {
             }
         }
 
-        self.consume(TokenKind::RightParen);
+        self.consume(term);
 
         args
     }
@@ -100,12 +100,20 @@ impl Parser {
         let span = Span::new(token.start, token.end);
 
         match &token.kind {
+            TokenKind::True => Expr::new(ExprKind::Bool(true), span),
+            TokenKind::False => Expr::new(ExprKind::Bool(false), span),
+
             TokenKind::Integer(val) => {
                 Spanned::new(ExprKind::Integer(*val), span)
             },
 
             TokenKind::Ident(name) => {
                 Spanned::new(ExprKind::Ident(name.clone()), span)
+            },
+
+            TokenKind::LeftBracket => {
+                let elems = self.parse_expr_list(TokenKind::RightBracket);
+                Expr::new(ExprKind::Array(elems), span)
             },
 
             tk @ (TokenKind::Minus | TokenKind::Bang) => {
@@ -163,7 +171,7 @@ impl Parser {
             },
 
             TokenKind::LeftParen => {
-                let args = self.parse_call_args();
+                let args = self.parse_expr_list(TokenKind::RightParen);
                 let span =
                     Span::new(lhs.span.start, self.source[self.cur - 1].end);
 
@@ -378,6 +386,23 @@ mod tests {
             name: "name".to_string(),
         };
 
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_booleans() {
+        let expr = parse_expr("true");
+        let expected = ExprKind::Bool(true);
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_array_literal() {
+        let expr = parse_expr("[1, 2]");
+        let expected = ExprKind::Array(vec![
+            Expr::new(ExprKind::Integer(1), Span::new(1, 2)),
+            Expr::new(ExprKind::Integer(2), Span::new(4, 5)),
+        ]);
         assert_eq!(expr.node, expected);
     }
 }

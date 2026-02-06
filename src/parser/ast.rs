@@ -34,8 +34,10 @@ impl<T> Spanned<T> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Integer(u16),
-
+    Bool(bool),
     Ident(String),
+    // String(String), // TODO: do we need this?
+    Array(Vec<Expr>),
 
     /// An expression with one operand (e.g. `-5`)
     Unary {

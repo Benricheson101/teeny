@@ -43,6 +43,7 @@ pub enum TokenKind {
 
     Semi,
     Comma,
+    Dot,
 
     Integer(u16),
 

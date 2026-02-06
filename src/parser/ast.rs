@@ -61,6 +61,18 @@ pub enum ExprKind {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+
+    /// Array subscript (e.g. `arr[i]`)
+    Subscript {
+        array: Box<Expr>,
+        index: Box<Expr>,
+    },
+
+    /// Member access (e.g. `obj.x`)
+    MemberAccess {
+        object: Box<Expr>,
+        name: String,
+    },
 }
 
 pub type Expr = Spanned<ExprKind>;

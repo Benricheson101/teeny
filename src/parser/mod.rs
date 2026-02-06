@@ -45,6 +45,22 @@ impl Parser {
         self.advance().clone()
     }
 
+    fn consume_ident(&mut self) -> String {
+        let token = self.peek();
+
+        match &token.kind {
+            TokenKind::Ident(name) => {
+                let name = name.clone();
+                self.advance();
+                name
+            },
+            _ => panic!(
+                "Expected identifier, got {:?} at line {}",
+                token.kind, token.line
+            ),
+        }
+    }
+
     fn parse_call_args(&mut self) -> Vec<Expr> {
         let mut args = Vec::new();
 
@@ -147,8 +163,6 @@ impl Parser {
             },
 
             TokenKind::LeftParen => {
-                // self.advance();
-
                 let args = self.parse_call_args();
                 let span =
                     Span::new(lhs.span.start, self.source[self.cur - 1].end);
@@ -157,6 +171,34 @@ impl Parser {
                     ExprKind::Call {
                         callee: Box::new(lhs),
                         args,
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::LeftBracket => {
+                let index = self.parse_expr(Precedence::Lowest);
+                self.consume(TokenKind::RightBracket);
+                let span = Span::merge(lhs.span, index.span);
+
+                Expr::new(
+                    ExprKind::Subscript {
+                        array: Box::new(lhs),
+                        index: Box::new(index),
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::Dot => {
+                let name = self.consume_ident();
+                let span =
+                    Span::new(lhs.span.start, self.source[self.cur - 1].end);
+
+                Expr::new(
+                    ExprKind::MemberAccess {
+                        object: Box::new(lhs),
+                        name,
                     },
                     span,
                 )
@@ -306,6 +348,34 @@ mod tests {
                 Span::new(0, 9),
             )),
             args: vec![Expr::new(ExprKind::Integer(3), Span::new(10, 11))],
+        };
+
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_subscript() {
+        let expr = parse_expr("arr[5]");
+        let expected = ExprKind::Subscript {
+            array: Box::new(Expr::new(
+                ExprKind::Ident("arr".to_string()),
+                Span::new(0, 3),
+            )),
+            index: Box::new(Expr::new(ExprKind::Integer(5), Span::new(4, 5))),
+        };
+
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_member_accessor() {
+        let expr = parse_expr("user.name");
+        let expected = ExprKind::MemberAccess {
+            object: Box::new(Expr::new(
+                ExprKind::Ident("user".to_string()),
+                Span::new(0, 4),
+            )),
+            name: "name".to_string(),
         };
 
         assert_eq!(expr.node, expected);

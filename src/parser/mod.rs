@@ -32,6 +32,41 @@ impl Parser {
         token
     }
 
+    fn consume(&mut self, expected: TokenKind) -> Token {
+        let token = self.peek();
+
+        if token.kind != expected {
+            panic!(
+                "Expected token {:?} but got {:?} at line {}, col {}",
+                expected, token.kind, token.line, token.col
+            );
+        }
+
+        self.advance().clone()
+    }
+
+    fn parse_call_args(&mut self) -> Vec<Expr> {
+        let mut args = Vec::new();
+
+        if self.peek().kind == TokenKind::RightParen {
+            self.advance();
+            return args;
+        }
+
+        loop {
+            args.push(self.parse_expr(Precedence::Lowest));
+            if self.peek().kind == TokenKind::Comma {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        self.consume(TokenKind::RightParen);
+
+        args
+    }
+
     // -- pratt parsing --
 
     pub fn parse_expr(&mut self, bp: Precedence) -> Expr {
@@ -54,7 +89,7 @@ impl Parser {
             },
 
             TokenKind::Ident(name) => {
-                Spanned::new(ExprKind::Var(name.clone()), span)
+                Spanned::new(ExprKind::Ident(name.clone()), span)
             },
 
             tk @ (TokenKind::Minus | TokenKind::Bang) => {
@@ -97,7 +132,7 @@ impl Parser {
             | TokenKind::StarEqual
             | TokenKind::SlashEqual => {
                 let value = self.parse_expr(Precedence::Lowest);
-                if !matches!(lhs.node, ExprKind::Var(_)) {
+                if !matches!(lhs.node, ExprKind::Ident(_)) {
                     panic!("Assigning to a non-variable: {lhs:?}");
                 }
 
@@ -106,6 +141,22 @@ impl Parser {
                     ExprKind::Assignment {
                         target: Box::new(lhs),
                         value: Box::new(value),
+                    },
+                    span,
+                )
+            },
+
+            TokenKind::LeftParen => {
+                // self.advance();
+
+                let args = self.parse_call_args();
+                let span =
+                    Span::new(lhs.span.start, self.source[self.cur - 1].end);
+
+                Expr::new(
+                    ExprKind::Call {
+                        callee: Box::new(lhs),
+                        args,
                     },
                     span,
                 )
@@ -223,7 +274,7 @@ mod tests {
         let expr = parse_expr("x + 5");
         let expected = ExprKind::Binary {
             lhs: Box::new(Expr::new(
-                ExprKind::Var("x".to_string()),
+                ExprKind::Ident("x".to_string()),
                 Span::new(0, 1),
             )),
             op: TokenKind::Plus,
@@ -239,10 +290,24 @@ mod tests {
 
         match expr.node {
             ExprKind::Assignment { target, value } => {
-                assert_eq!(target.node, ExprKind::Var("var".to_string()));
+                assert_eq!(target.node, ExprKind::Ident("var".to_string()));
                 assert_eq!(value.node, ExprKind::Integer(1));
             },
             _ => panic!("top level is not Assignment"),
         }
+    }
+
+    #[test]
+    fn parse_call() {
+        let expr = parse_expr("something(3)");
+        let expected = ExprKind::Call {
+            callee: Box::new(Expr::new(
+                ExprKind::Ident("something".to_string()),
+                Span::new(0, 9),
+            )),
+            args: vec![Expr::new(ExprKind::Integer(3), Span::new(10, 11))],
+        };
+
+        assert_eq!(expr.node, expected);
     }
 }

@@ -6,7 +6,7 @@ use parser::{Parser, precedence::Precedence};
 
 #[cfg(not(coverage))]
 fn main() {
-    let expr = "x = 5";
+    let expr = "x((x + 1) * 3) * 2";
     // let expr = r"
     //     fn main() {
     //         let x = 5;

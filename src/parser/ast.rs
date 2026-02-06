@@ -35,7 +35,7 @@ impl<T> Spanned<T> {
 pub enum ExprKind {
     Integer(u16),
 
-    Var(String),
+    Ident(String),
 
     /// An expression with one operand (e.g. `-5`)
     Unary {
@@ -50,10 +50,16 @@ pub enum ExprKind {
         rhs: Box<Expr>,
     },
 
-    /// assigning a value to a variable (e.g. `x = 5`, `y += 3`)
+    /// Assigning a value to a variable (e.g. `x = 5`, `y += 3`)
     Assignment {
         target: Box<Expr>,
         value: Box<Expr>,
+    },
+
+    /// A function call (e.g. `my_fn(1, 2)`)
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
     },
 }
 

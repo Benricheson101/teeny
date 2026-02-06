@@ -7,6 +7,15 @@ use parser::Parser;
 #[cfg(not(coverage))]
 fn main() {
     let expr = r"
+        struct User {
+            name: String,
+            id: i16,
+
+            fn get_id(self) -> i16 {
+                return self.id;
+            }
+        }
+
         fn add(a: i16, b: i16) -> i16 {
             return a + b;
         }

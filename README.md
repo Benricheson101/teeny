@@ -1,5 +1,5 @@
-[![codecov](https://codecov.io/gh/Benricheson101/teeny/branch/main/graph/badge.svg?token=BG0ZN798H4)](https://codecov.io/gh/Benricheson101/teeny)
 [![.github/workflows/ci.yml](https://github.com/Benricheson101/teeny/actions/workflows/ci.yml/badge.svg)](https://github.com/Benricheson101/teeny/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Benricheson101/teeny/branch/main/graph/badge.svg?token=BG0ZN798H4)](https://codecov.io/gh/Benricheson101/teeny)
 
 <h1 align="center">Teeny - CS Capstone Project</h1>
 

@@ -45,6 +45,7 @@ pub enum TokenKind {
     Comma,
     Dot,
     Colon,
+    Arrow,
 
     Integer(i16),
 

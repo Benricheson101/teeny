@@ -127,6 +127,13 @@ pub enum StmtKind {
         cond: Expr,
         body: Box<Stmt>,
     },
+
+    Fn {
+        name: String,
+        params: Vec<(String, Type)>,
+        return_type: Option<Type>,
+        body: Box<Stmt>,
+    },
 }
 
 pub type Stmt = Spanned<StmtKind>;

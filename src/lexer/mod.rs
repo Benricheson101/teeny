@@ -144,6 +144,7 @@ impl<'a> Lexer<'a> {
 
                     '-' if self.next_matches('=') => MinusEqual,
                     '-' if self.next_matches('-') => MinusMinus,
+                    '-' if self.next_matches('>') => Arrow,
                     '-' => Minus,
 
                     '*' if self.next_matches('=') => StarEqual,

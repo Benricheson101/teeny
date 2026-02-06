@@ -153,6 +153,7 @@ impl Parser {
             TokenKind::While => self.parse_while(),
             TokenKind::LeftBrace => self.parse_block(),
             TokenKind::Return => self.parse_return(),
+            TokenKind::Fn => self.parse_fn_decl(),
             _ => self.parse_expr_stmt(),
         }
     }
@@ -300,6 +301,49 @@ impl Parser {
                 ty,
                 value: val,
                 mutable: is_mutable,
+            },
+            span,
+        )
+    }
+
+    fn parse_fn_decl(&mut self) -> Stmt {
+        let start = self.consume(TokenKind::Fn);
+        let name = self.consume_ident();
+
+        self.consume(TokenKind::LeftParen);
+
+        let mut params = Vec::new();
+
+        if !self.check(&TokenKind::RightParen) {
+            loop {
+                let name = self.consume_ident();
+                self.consume(TokenKind::Colon);
+                let ty = self.parse_type();
+
+                params.push((name, ty));
+
+                if !self.check(&TokenKind::Comma) {
+                    break;
+                }
+            }
+        }
+        self.consume(TokenKind::RightParen);
+
+        let return_type = if self.matches(TokenKind::Arrow) {
+            Some(self.parse_type())
+        } else {
+            None
+        };
+
+        let body = Box::new(self.parse_block());
+        let span = Span::new(start.start, body.span.end);
+
+        Stmt::new(
+            StmtKind::Fn {
+                name,
+                params,
+                return_type,
+                body,
             },
             span,
         )
@@ -825,5 +869,38 @@ mod tests {
 
         let stmt = parse_stmt("while (x > 5) { x--; }");
         assert!(matches!(stmt.node, StmtKind::While { .. }));
+    }
+
+    #[test]
+    fn parse_fn_decl() {
+        let stmt = parse_stmt("fn main() {}");
+
+        let StmtKind::Fn {
+            name,
+            params,
+            return_type,
+            ..
+        } = stmt.node
+        else {
+            panic!("not Fn");
+        };
+
+        assert_eq!(name, "main".to_string());
+        assert_eq!(params.len(), 0);
+        assert_eq!(return_type, None);
+
+        let stmt = parse_stmt("fn main(a: i16) {}");
+        let StmtKind::Fn { params, .. } = stmt.node else {
+            panic!("not Fn");
+        };
+
+        assert_eq!(params, vec![("a".to_string(), Type::I16)]);
+
+        let stmt = parse_stmt("fn main(a: i16) -> *i16 {}");
+        let StmtKind::Fn { return_type, .. } = stmt.node else {
+            panic!("not Fn");
+        };
+
+        assert_eq!(return_type, Some(Type::Pointer(Box::new(Type::I16))));
     }
 }

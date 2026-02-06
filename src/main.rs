@@ -1,3 +1,4 @@
+pub mod error;
 pub mod lexer;
 pub mod parser;
 
@@ -33,7 +34,8 @@ fn main() {
     println!("{:#?}", &tokens);
 
     let mut prs = Parser::new(tokens);
-    let ast = prs.parse();
+    let (ast, errors) = prs.parse();
 
     println!("{ast:#?}");
+    println!("{errors:#?}");
 }

@@ -6,7 +6,15 @@ use parser::{Parser, precedence::Precedence};
 
 #[cfg(not(coverage))]
 fn main() {
-    let expr = "5 * (2 + 3)";
+    let expr = "x = 5";
+    // let expr = r"
+    //     fn main() {
+    //         let x = 5;
+    //         let y = 10;
+    //         let z = x + y;
+    //         print(z);
+    //     }
+    // ";
     println!("{expr}");
 
     let lex = Lexer::new(expr);
@@ -16,5 +24,5 @@ fn main() {
     let mut prs = Parser::new(tokens);
     let ast = prs.parse_expr(Precedence::Lowest);
 
-    println!("{:#?}", ast);
+    println!("{ast:#?}");
 }

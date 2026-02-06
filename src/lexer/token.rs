@@ -12,6 +12,7 @@ pub enum TokenKind {
     Star,
     Slash,
     Bang,
+    Percent,
 
     BitAnd,
     BitXor,
@@ -20,6 +21,7 @@ pub enum TokenKind {
     RightShift,
     LeftShift,
 
+    Equality,
     PlusEqual,
     MinusEqual,
     StarEqual,
@@ -36,6 +38,8 @@ pub enum TokenKind {
     Gte,
     Lt,
     Lte,
+
+    Equal,
 
     Semi,
 

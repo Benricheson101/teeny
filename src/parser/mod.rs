@@ -53,13 +53,18 @@ impl Parser {
                 Spanned::new(ExprKind::Integer(*val), span)
             },
 
-            TokenKind::Minus => {
+            TokenKind::Ident(name) => {
+                Spanned::new(ExprKind::Var(name.clone()), span)
+            },
+
+            tk @ (TokenKind::Minus | TokenKind::Bang) => {
+                let tk = tk.clone();
                 let right = self.parse_expr(Precedence::Prefix);
                 let span = Span::merge(span, right.span);
 
                 Spanned::new(
                     ExprKind::Unary {
-                        op: TokenKind::Minus,
+                        op: tk,
                         rhs: Box::new(right),
                     },
                     span,
@@ -84,19 +89,43 @@ impl Parser {
 
     fn parse_infix(&mut self, lhs: Expr) -> Expr {
         let op_token = self.advance().clone();
-        let op_bp = Precedence::of(&op_token.kind);
 
-        let rhs = self.parse_expr(op_bp);
-        let span = Span::merge(lhs.span, rhs.span);
+        match op_token.kind {
+            TokenKind::Equal
+            | TokenKind::PlusEqual
+            | TokenKind::MinusEqual
+            | TokenKind::StarEqual
+            | TokenKind::SlashEqual => {
+                let value = self.parse_expr(Precedence::Lowest);
+                if !matches!(lhs.node, ExprKind::Var(_)) {
+                    panic!("Assigning to a non-variable: {lhs:?}");
+                }
 
-        Spanned::new(
-            ExprKind::Binary {
-                lhs: Box::new(lhs),
-                op: op_token.kind,
-                rhs: Box::new(rhs),
+                let span = Span::merge(lhs.span, value.span);
+                Expr::new(
+                    ExprKind::Assignment {
+                        target: Box::new(lhs),
+                        value: Box::new(value),
+                    },
+                    span,
+                )
             },
-            span,
-        )
+
+            _ => {
+                let op_bp = Precedence::of(&op_token.kind);
+                let rhs = self.parse_expr(op_bp);
+                let span = Span::merge(lhs.span, rhs.span);
+
+                Expr::new(
+                    ExprKind::Binary {
+                        lhs: Box::new(lhs),
+                        op: op_token.kind,
+                        rhs: Box::new(rhs),
+                    },
+                    span,
+                )
+            },
+        }
     }
 }
 
@@ -186,6 +215,34 @@ mod tests {
                 }
             },
             _ => panic!("Top level is not a binary expr"),
+        }
+    }
+
+    #[test]
+    fn variable_in_expr() {
+        let expr = parse_expr("x + 5");
+        let expected = ExprKind::Binary {
+            lhs: Box::new(Expr::new(
+                ExprKind::Var("x".to_string()),
+                Span::new(0, 1),
+            )),
+            op: TokenKind::Plus,
+            rhs: Box::new(Expr::new(ExprKind::Integer(5), Span::new(4, 5))),
+        };
+
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn assignment() {
+        let expr = parse_expr("var = 1");
+
+        match expr.node {
+            ExprKind::Assignment { target, value } => {
+                assert_eq!(target.node, ExprKind::Var("var".to_string()));
+                assert_eq!(value.node, ExprKind::Integer(1));
+            },
+            _ => panic!("top level is not Assignment"),
         }
     }
 }

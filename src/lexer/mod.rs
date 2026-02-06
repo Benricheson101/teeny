@@ -1,5 +1,5 @@
-pub mod token;
 pub mod keywords;
+pub mod token;
 
 use std::{iter::Peekable, str::Chars};
 
@@ -85,11 +85,15 @@ impl<'a> Lexer<'a> {
     }
 
     fn ident(&mut self) -> TokenKind {
-        while self.source.peek().is_some_and(|p| p.is_ascii_alphanumeric()) {
+        while self
+            .source
+            .peek()
+            .is_some_and(|p| p.is_ascii_alphanumeric())
+        {
             self.advance();
         }
 
-        let txt = &self.source_string[self.start .. self.pos];
+        let txt = &self.source_string[self.start..self.pos];
         if let Some(kw) = KEYWORDS.get(txt) {
             kw.to_owned()
         } else {
@@ -121,6 +125,8 @@ impl<'a> Lexer<'a> {
                     ';' => Semi,
                     '~' => BitNot,
                     '^' => BitXor,
+                    '=' if self.next_matches('=') => Equality,
+                    '=' => Equal,
 
                     '&' if self.next_matches('&') => And,
                     '&' => BitAnd,
@@ -163,9 +169,7 @@ impl<'a> Lexer<'a> {
 
                     _ if ch.is_ascii_digit() => Integer(self.integer()),
 
-                    _ if ch.is_ascii_alphabetic() => {
-                        self.ident()
-                    },
+                    _ if ch.is_ascii_alphabetic() => self.ident(),
 
                     _ => panic!("illegal character: {ch}"),
                 },

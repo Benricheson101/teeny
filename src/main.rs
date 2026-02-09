@@ -3,6 +3,7 @@ pub mod lexer;
 pub mod parser;
 
 use lexer::Lexer;
+use miette::NamedSource;
 use parser::Parser;
 
 #[cfg(not(coverage))]
@@ -42,5 +43,10 @@ fn main() {
     let (ast, errors) = prs.parse();
 
     println!("{ast:#?}");
-    println!("{errors:#?}");
+
+    for err in errors {
+        let source = NamedSource::new("main.tny", expr.to_string()); //.read_span(&span, 1, 1).unwrap();
+        let err = miette::Report::new(err).with_source_code(source);
+        eprintln!("{:?}", err);
+    }
 }

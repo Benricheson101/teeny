@@ -1,3 +1,5 @@
+use miette::SourceSpan;
+
 use crate::lexer::token::TokenKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +18,12 @@ impl Span {
             start: a.start,
             end: b.end,
         }
+    }
+}
+
+impl From<Span> for SourceSpan {
+    fn from(s: Span) -> Self {
+        Self::new(s.start.into(), s.end - s.start)
     }
 }
 

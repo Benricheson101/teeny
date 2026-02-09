@@ -20,6 +20,8 @@ struct_member = field_decl
 
 field_decl = IDENTIFIER ":" type [ "," ] ;
 
+return = "return" [ expression ] ";" ;
+
 type = "i16"
      | "bool"
      | IDENTIFIER

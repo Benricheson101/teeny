@@ -89,6 +89,12 @@ pub enum ExprKind {
         object: Box<Expr>,
         name: String,
     },
+
+    StructInit {
+        // allows access like `namespace.User`
+        name: Box<Expr>,
+        fields: Vec<(String, Expr)>,
+    },
 }
 
 pub type Expr = Spanned<ExprKind>;

@@ -8,12 +8,12 @@ use parser::Parser;
 #[cfg(not(coverage))]
 fn main() {
     let expr = r"
-        struct User {
-            name: String,
-            id: i16,
+        struct Point {
+            x: i16,
+            y: i16,
 
-            fn get_id(self) -> i16 {
-                return self.id;
+            fn add(self, other: Point) -> Point {
+                return Point { x: self.x + other.x, y: self.y + other.y };
             }
         }
 
@@ -22,11 +22,16 @@ fn main() {
         }
 
         fn main() {
+            let a = Point { x: 0, y: 0 };
+            let b = Point { x: 5, y: 10 };
+            let c = a.add(b);
+
             let x = 0;
             let y = 10;
-            let z = add(a, b);
+            let z = add(x, y);
         }
     ";
+
     println!("{expr}");
 
     let lex = Lexer::new(expr);

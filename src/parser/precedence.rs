@@ -49,9 +49,8 @@ impl Precedence {
             LeftShift | RightShift => Self::BitShift,
             Plus | Minus => Self::Sum,
             Star | Slash | Percent => Self::Product,
-            LeftParen | Dot | LeftBracket | PlusPlus | MinusMinus => {
-                Precedence::Call
-            },
+            LeftParen | LeftBrace | Dot | LeftBracket | PlusPlus
+            | MinusMinus => Precedence::Call,
             _ => Self::Lowest,
         }
     }

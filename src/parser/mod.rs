@@ -189,6 +189,13 @@ impl Parser {
         Ok(Stmt::new(StmtKind::Expr(expr), span))
     }
 
+    /// ```ebnf
+    /// type = "i16"
+    ///      | "bool"
+    ///      | IDENTIFIER
+    ///      | "*" type
+    ///      | "[" type ";" INTEGER "]" ;
+    /// ```
     fn parse_type(&mut self) -> ParseResult<Type> {
         if self.matches(TokenKind::Star) {
             return Ok(Type::Pointer(Box::new(self.parse_type()?)));
@@ -285,6 +292,8 @@ impl Parser {
         Ok(Stmt::new(StmtKind::While { cond, body }, span))
     }
 
+    /// `return = "return" [ expression ] ";" ;`
+
     fn parse_return(&mut self) -> ParseResult<Stmt> {
         let start = self.consume(TokenKind::Return)?;
 
@@ -300,14 +309,14 @@ impl Parser {
         Ok(Stmt::new(StmtKind::Return(val), span))
     }
 
+    /// `var_decl = ("let" | "const") IDENTIFIER [ ":" type ] "=" expression ";" ;`
     fn parse_var_decl(&mut self) -> ParseResult<Stmt> {
         let start = self.peek().start;
-        let is_mutable = if self.peek().kind == TokenKind::Let {
-            self.advance();
-            true
-        } else {
-            self.consume(TokenKind::Const)?;
-            false
+
+        let is_mutable = match self.advance().kind {
+            TokenKind::Let => true,
+            TokenKind::Const => false,
+            _ => unreachable!(),
         };
 
         let name = self.consume_ident()?;
@@ -323,6 +332,7 @@ impl Parser {
 
         let val = self.parse_expr(Precedence::Lowest)?;
         let semi = self.consume(TokenKind::Semi)?;
+
         let span = Span::new(start, semi.end);
 
         Ok(Stmt::new(
@@ -336,6 +346,7 @@ impl Parser {
         ))
     }
 
+    /// `fn_decl = "fn" IDENTIFIER "(" [ param_list ] ")" [ "->" type ] block ;`
     fn parse_fn_decl(&mut self) -> ParseResult<Stmt> {
         let start = self.consume(TokenKind::Fn)?;
         let name = self.consume_ident()?;
@@ -389,6 +400,14 @@ impl Parser {
         ))
     }
 
+    /// ```ebnf
+    /// struct_decl = "struct" IDENTIFIER "{" { struct_member } "}" ;
+    ///
+    /// struct_member = field_decl
+    ///               | function_decl ;
+    ///
+    /// field_decl = IDENTIFIER ":" type [ "," ] ;
+    /// ```
     fn parse_struct_decl(&mut self) -> ParseResult<Stmt> {
         let start = self.consume(TokenKind::Struct)?;
         let name = self.consume_ident()?;
@@ -427,6 +446,28 @@ impl Parser {
         let span = Span::new(start.start, end.end);
 
         Ok(Stmt::new(StmtKind::Struct { name, members }, span))
+    }
+
+    fn parse_struct_init_fields(&mut self) -> ParseResult<Vec<(String, Expr)>> {
+        let mut fields = Vec::new();
+        while !self.check(&TokenKind::RightBrace) {
+            let name = self.consume_ident()?;
+            let val = if self.matches(TokenKind::Colon) {
+                self.parse_expr(Precedence::Lowest)?
+            } else {
+                let prev = self.prev();
+                let span = Span::new(prev.start, prev.end);
+                Expr::new(ExprKind::Ident(name.clone()), span)
+            };
+
+            fields.push((name, val));
+
+            if !self.matches(TokenKind::Comma) {
+                break;
+            }
+        }
+
+        Ok(fields)
     }
 
     // -- pratt parsing for expressions --
@@ -504,7 +545,6 @@ impl Parser {
                 let expr = self.parse_expr(Precedence::Lowest)?;
 
                 let next = self.peek();
-                // if let TokenKind::RightParen = next {
                 if next.kind == TokenKind::RightParen {
                     self.advance();
                 } else {
@@ -612,6 +652,31 @@ impl Parser {
                     ExprKind::MemberAccess {
                         object: Box::new(lhs),
                         name,
+                    },
+                    span,
+                ))
+            },
+
+            TokenKind::LeftBrace => {
+                match lhs.node {
+                    ExprKind::Ident(_) | ExprKind::MemberAccess { .. } => {},
+                    _ => {
+                        return Err(ParseError {
+                            message: "Struct init must follow a type name"
+                                .to_string(),
+                            span: lhs.span,
+                        });
+                    },
+                }
+
+                let fields = self.parse_struct_init_fields()?;
+                let end_token = self.consume(TokenKind::RightBrace)?;
+                let span = Span::new(lhs.span.start, end_token.end);
+
+                Ok(Expr::new(
+                    ExprKind::StructInit {
+                        name: Box::new(lhs),
+                        fields,
                     },
                     span,
                 ))
@@ -865,6 +930,50 @@ mod tests {
     }
 
     #[test]
+    fn parse_struct_init() {
+        let expr = parse_expr("Point { x: 5, y: 0 }");
+        let expected = ExprKind::StructInit {
+            name: Box::new(Expr::new(
+                ExprKind::Ident("Point".to_string()),
+                Span::new(0, 5),
+            )),
+            fields: vec![
+                (
+                    "x".to_string(),
+                    Expr::new(ExprKind::Integer(5), Span::new(11, 12)),
+                ),
+                (
+                    "y".to_string(),
+                    Expr::new(ExprKind::Integer(0), Span::new(17, 18)),
+                ),
+            ],
+        };
+        assert_eq!(expr.node, expected);
+
+        let expr = parse_expr("Point { x, y: 3 }");
+        let expected = ExprKind::StructInit {
+            name: Box::new(Expr::new(
+                ExprKind::Ident("Point".to_string()),
+                Span::new(0, 5),
+            )),
+            fields: vec![
+                (
+                    "x".to_string(),
+                    Expr::new(
+                        ExprKind::Ident("x".to_string()),
+                        Span::new(8, 9),
+                    ),
+                ),
+                (
+                    "y".to_string(),
+                    Expr::new(ExprKind::Integer(3), Span::new(14, 15)),
+                ),
+            ],
+        };
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
     fn parse_var_decl() {
         let s = parse_stmt("let x = 5;");
         assert_eq!(
@@ -888,7 +997,7 @@ mod tests {
             }
         );
 
-        let s = parse_stmt("let x: [i16; 3] = 5;");
+        let s = parse_stmt("const x: [i16; 3] = 5;");
         assert_eq!(
             s.node,
             StmtKind::VarDecl {
@@ -897,8 +1006,8 @@ mod tests {
                     size: 3,
                 }),
                 name: "x".to_string(),
-                value: Expr::new(ExprKind::Integer(5), Span::new(18, 19)),
-                mutable: true,
+                value: Expr::new(ExprKind::Integer(5), Span::new(20, 21)),
+                mutable: false,
             }
         );
 
@@ -1021,5 +1130,10 @@ mod tests {
 
         assert_eq!(name, "User".to_string());
         assert_eq!(members.len(), 3);
+    }
+
+    #[test]
+    fn parse_errors_syncronize() {
+        // let
     }
 }

@@ -657,9 +657,25 @@ impl Parser {
                 ))
             },
 
+            TokenKind::ColonColon => {
+                let member = self.consume_ident()?;
+                let span =
+                    Span::new(lhs.span.start, self.source[self.cur - 1].end);
+
+                Ok(Expr::new(
+                    ExprKind::StaticAccess {
+                        target: Box::new(lhs),
+                        member,
+                    },
+                    span,
+                ))
+            },
+
             TokenKind::LeftBrace => {
                 match lhs.node {
-                    ExprKind::Ident(_) | ExprKind::MemberAccess { .. } => {},
+                    ExprKind::Ident(_)
+                    | ExprKind::MemberAccess { .. }
+                    | ExprKind::StaticAccess { .. } => {},
                     _ => {
                         return Err(ParseError {
                             message: "Struct init must follow a type name"
@@ -863,6 +879,19 @@ mod tests {
             name: "name".to_string(),
         };
 
+        assert_eq!(expr.node, expected);
+    }
+
+    #[test]
+    fn parse_static_accessor() {
+        let expr = parse_expr("User::new");
+        let expected = ExprKind::StaticAccess {
+            target: Box::new(Expr::new(
+                ExprKind::Ident("User".to_string()),
+                Span::new(0, 4),
+            )),
+            member: "new".to_string(),
+        };
         assert_eq!(expr.node, expected);
     }
 

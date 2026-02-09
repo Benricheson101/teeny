@@ -98,6 +98,13 @@ pub enum ExprKind {
         name: String,
     },
 
+    /// Static access (e.g. `ivt::register`)
+    StaticAccess {
+        target: Box<Expr>,
+        member: String,
+    },
+
+    /// Struct initialization (e.g. `Point { x, y }`)
     StructInit {
         // allows access like `namespace.User`
         name: Box<Expr>,

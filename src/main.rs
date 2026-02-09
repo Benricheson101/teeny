@@ -33,6 +33,8 @@ fn main() {
         }
     ";
 
+    let expr = "ivt::register {balls};";
+
     println!("{expr}");
 
     let lex = Lexer::new(expr);

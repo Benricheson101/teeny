@@ -50,7 +50,7 @@ impl Precedence {
             Plus | Minus => Self::Sum,
             Star | Slash | Percent => Self::Product,
             LeftParen | LeftBrace | Dot | LeftBracket | PlusPlus
-            | MinusMinus => Precedence::Call,
+            | ColonColon | MinusMinus => Precedence::Call,
             _ => Self::Lowest,
         }
     }

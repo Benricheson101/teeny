@@ -27,7 +27,7 @@ fn main() {
             let b = Point { x: 5, y: 10 };
             let c = a.add(b);
 
-            let x = 0;
+            let x = 1;
             let y = 10;
             let z = add(x, y);
         }

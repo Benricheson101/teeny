@@ -1,102 +1,126 @@
 use crate::{
     lexer::token::TokenKind,
-    parser::ast::{Expr, ExprKind, Stmt, StmtKind, Type},
+    parser::ast::{Expr, ExprKind, Span, Stmt, StmtKind, Type},
 };
 
 pub trait Visitor {
     fn visit_expr(&mut self, expr: &Expr) {
+        let span = expr.span;
         match &expr.node {
-            ExprKind::Integer(i) => self.visit_integer(*i),
-            ExprKind::Bool(b) => self.visit_bool(*b),
-            ExprKind::Ident(ident) => self.visit_ident(ident),
-            ExprKind::Array(exprs) => self.visit_array(exprs),
+            ExprKind::Integer(i) => self.visit_integer(span, *i),
+            ExprKind::Bool(b) => self.visit_bool(span, *b),
+            ExprKind::Ident(ident) => self.visit_ident(span, ident),
+            ExprKind::Array(exprs) => self.visit_array(span, exprs),
             ExprKind::Increment { prefix, expr } => {
-                self.visit_increment(*prefix, expr)
+                self.visit_increment(span, *prefix, expr)
             },
             ExprKind::Decrement { prefix, expr } => {
-                self.visit_decrement(*prefix, expr)
+                self.visit_decrement(span, *prefix, expr)
             },
-            ExprKind::Unary { op, rhs } => self.visit_unary(op, rhs),
+            ExprKind::Unary { op, rhs } => self.visit_unary(span, op, rhs),
             ExprKind::Binary { lhs, op, rhs } => {
-                self.visit_binary(lhs, op, rhs)
+                self.visit_binary(span, lhs, op, rhs)
             },
             ExprKind::Assignment { target, value } => {
-                self.visit_assignment(target, value)
+                self.visit_assignment(span, target, value)
             },
-            ExprKind::Call { callee, args } => self.visit_call(callee, args),
+            ExprKind::Call { callee, args } => {
+                self.visit_call(span, callee, args)
+            },
             ExprKind::Subscript { array, index } => {
-                self.visit_subscript(array, index)
+                self.visit_subscript(span, array, index)
             },
             ExprKind::MemberAccess { object, name } => {
-                self.visit_member_access(object, name)
+                self.visit_member_access(span, object, name)
             },
             ExprKind::StaticAccess { target, member } => {
-                self.visit_static_access(target, member)
+                self.visit_static_access(span, target, member)
             },
             ExprKind::StructInit { name, fields } => {
-                self.visit_struct_init(name, fields)
+                self.visit_struct_init(span, name, fields)
             },
         }
     }
 
-    fn visit_integer(&mut self, _i: i16) {
+    fn visit_integer(&mut self, _span: Span, _i: i16) {
     }
 
-    fn visit_bool(&mut self, _b: bool) {
+    fn visit_bool(&mut self, _span: Span, _b: bool) {
     }
 
-    fn visit_ident(&mut self, _ident: &String) {
+    fn visit_ident(&mut self, _span: Span, _ident: &String) {
     }
 
-    fn visit_array(&mut self, exprs: &[Expr]) {
+    fn visit_array(&mut self, _span: Span, exprs: &[Expr]) {
         for expr in exprs {
             self.visit_expr(expr);
         }
     }
 
-    fn visit_increment(&mut self, _prefix: bool, expr: &Expr) {
+    fn visit_increment(&mut self, _span: Span, _prefix: bool, expr: &Expr) {
         self.visit_expr(expr);
     }
 
-    fn visit_decrement(&mut self, _prefix: bool, expr: &Expr) {
+    fn visit_decrement(&mut self, _span: Span, _prefix: bool, expr: &Expr) {
         self.visit_expr(expr);
     }
 
-    fn visit_unary(&mut self, _op: &TokenKind, rhs: &Expr) {
+    fn visit_unary(&mut self, _span: Span, _op: &TokenKind, rhs: &Expr) {
         self.visit_expr(rhs);
     }
 
-    fn visit_binary(&mut self, lhs: &Expr, _op: &TokenKind, rhs: &Expr) {
+    fn visit_binary(
+        &mut self,
+        _span: Span,
+        lhs: &Expr,
+        _op: &TokenKind,
+        rhs: &Expr,
+    ) {
         self.visit_expr(lhs);
         self.visit_expr(rhs);
     }
 
-    fn visit_assignment(&mut self, target: &Expr, value: &Expr) {
+    fn visit_assignment(&mut self, _span: Span, target: &Expr, value: &Expr) {
         self.visit_expr(target);
         self.visit_expr(value);
     }
 
-    fn visit_call(&mut self, callee: &Expr, args: &[Expr]) {
+    fn visit_call(&mut self, _span: Span, callee: &Expr, args: &[Expr]) {
         self.visit_expr(callee);
         for arg in args {
             self.visit_expr(arg);
         }
     }
 
-    fn visit_subscript(&mut self, array: &Expr, index: &Expr) {
+    fn visit_subscript(&mut self, _span: Span, array: &Expr, index: &Expr) {
         self.visit_expr(array);
         self.visit_expr(index);
     }
 
-    fn visit_member_access(&mut self, object: &Expr, _name: &String) {
+    fn visit_member_access(
+        &mut self,
+        _span: Span,
+        object: &Expr,
+        _name: &String,
+    ) {
         self.visit_expr(object);
     }
 
-    fn visit_static_access(&mut self, target: &Expr, _member: &String) {
+    fn visit_static_access(
+        &mut self,
+        _span: Span,
+        target: &Expr,
+        _member: &String,
+    ) {
         self.visit_expr(target);
     }
 
-    fn visit_struct_init(&mut self, name: &Expr, fields: &[(String, Expr)]) {
+    fn visit_struct_init(
+        &mut self,
+        _span: Span,
+        name: &Expr,
+        fields: &[(String, Expr)],
+    ) {
         self.visit_expr(name);
         for (_name, field) in fields {
             self.visit_expr(field);
@@ -104,39 +128,43 @@ pub trait Visitor {
     }
 
     fn visit_stmt(&mut self, stmt: &Stmt) {
+        let span = stmt.span;
         match &stmt.node {
             StmtKind::VarDecl {
                 name,
                 ty,
                 value,
                 mutable,
-            } => self.visit_var_decl(name, ty, value, *mutable),
+            } => self.visit_var_decl(span, name, ty, value, *mutable),
             StmtKind::Expr(expr) => self.visit_expr(expr),
-            StmtKind::Block(stmts) => self.visit_block(stmts),
-            StmtKind::Return(expr) => self.visit_return(expr),
+            StmtKind::Block(stmts) => self.visit_block(span, stmts),
+            StmtKind::Return(expr) => self.visit_return(span, expr),
             StmtKind::If {
                 cond,
                 then_branch,
                 else_branch,
-            } => self.visit_if(cond, then_branch, else_branch.as_deref()),
-            StmtKind::While { cond, body } => self.visit_while(cond, body),
+            } => self.visit_if(span, cond, then_branch, else_branch.as_deref()),
+            StmtKind::While { cond, body } => {
+                self.visit_while(span, cond, body)
+            },
             StmtKind::Fn {
                 name,
                 params,
                 return_type,
                 body,
-            } => self.visit_fn(name, params, return_type, body),
+            } => self.visit_fn(span, name, params, return_type, body),
             StmtKind::Struct { name, members } => {
-                self.visit_struct(name, members)
+                self.visit_struct(span, name, members)
             },
             StmtKind::StructField { name, ty } => {
-                self.visit_struct_field(name, ty)
+                self.visit_struct_field(span, name, ty)
             },
         }
     }
 
     fn visit_var_decl(
         &mut self,
+        _span: Span,
         _name: &String,
         _ty: &Option<Type>,
         value: &Expr,
@@ -145,13 +173,13 @@ pub trait Visitor {
         self.visit_expr(value);
     }
 
-    fn visit_block(&mut self, stmts: &[Stmt]) {
+    fn visit_block(&mut self, _span: Span, stmts: &[Stmt]) {
         for stmt in stmts {
             self.visit_stmt(stmt);
         }
     }
 
-    fn visit_return(&mut self, expr: &Option<Expr>) {
+    fn visit_return(&mut self, _span: Span, expr: &Option<Expr>) {
         if let Some(expr) = expr {
             self.visit_expr(expr);
         }
@@ -159,6 +187,7 @@ pub trait Visitor {
 
     fn visit_if(
         &mut self,
+        _span: Span,
         cond: &Expr,
         then_branch: &Stmt,
         else_branch: Option<&Stmt>,
@@ -170,13 +199,14 @@ pub trait Visitor {
         }
     }
 
-    fn visit_while(&mut self, cond: &Expr, body: &Stmt) {
+    fn visit_while(&mut self, _span: Span, cond: &Expr, body: &Stmt) {
         self.visit_expr(cond);
         self.visit_stmt(body);
     }
 
     fn visit_fn(
         &mut self,
+        _span: Span,
         _name: &String,
         _params: &[(String, Type)],
         _return_type: &Option<Type>,
@@ -185,13 +215,13 @@ pub trait Visitor {
         self.visit_stmt(body);
     }
 
-    fn visit_struct(&mut self, _name: &String, members: &[Stmt]) {
+    fn visit_struct(&mut self, _span: Span, _name: &String, members: &[Stmt]) {
         for member in members {
             self.visit_stmt(member);
         }
     }
 
-    fn visit_struct_field(&mut self, _name: &String, _ty: &Type) {
+    fn visit_struct_field(&mut self, _span: Span, _name: &String, _ty: &Type) {
     }
 }
 
@@ -220,15 +250,15 @@ mod tests {
     }
 
     impl Visitor for CounterVisitor {
-        fn visit_integer(&mut self, _i: i16) {
+        fn visit_integer(&mut self, _span: Span, _i: i16) {
             self.integer_count += 1;
         }
 
-        fn visit_bool(&mut self, _b: bool) {
+        fn visit_bool(&mut self, _span: Span, _b: bool) {
             self.bool_count += 1;
         }
 
-        fn visit_ident(&mut self, _ident: &String) {
+        fn visit_ident(&mut self, _span: Span, _ident: &String) {
             self.ident_count += 1;
         }
     }

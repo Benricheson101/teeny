@@ -1,8 +1,10 @@
+pub mod analysis;
 pub mod error;
 pub mod lexer;
 pub mod parser;
 pub mod visitor;
 
+use analysis::symbol::SymbolResolver;
 use lexer::Lexer;
 use miette::NamedSource;
 use parser::Parser;
@@ -49,5 +51,14 @@ fn main() {
         let source = NamedSource::new("main.tny", expr.to_string()); //.read_span(&span, 1, 1).unwrap();
         let err = miette::Report::new(err).with_source_code(source);
         eprintln!("{:?}", err);
+    }
+
+    let mut sr = SymbolResolver::new();
+    if let Err(errors) = sr.check(&ast) {
+        for err in errors {
+            let source = NamedSource::new("main.tny", expr.to_string());
+            let err = miette::Report::new(err).with_source_code(source);
+            eprintln!("{:?}", err);
+        }
     }
 }

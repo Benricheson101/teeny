@@ -1,3 +1,5 @@
+#![allow(unused_assignments)] // miette Diagnostic breaks this somehow
+
 use std::{error::Error, fmt};
 
 use miette::Diagnostic;

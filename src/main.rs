@@ -1,6 +1,7 @@
 pub mod error;
 pub mod lexer;
 pub mod parser;
+pub mod visitor;
 
 use lexer::Lexer;
 use miette::NamedSource;
@@ -32,8 +33,6 @@ fn main() {
             let z = add(x, y);
         }
     ";
-
-    let expr = "ivt::register {balls};";
 
     println!("{expr}");
 

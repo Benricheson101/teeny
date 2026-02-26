@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     error::{TeenyCompilerError, TeenyCompilerErrorKind},
-    parser::ast::{Expr, Span, Stmt, Type},
+    parser::ast::{Expr, Span, Stmt, StmtKind, Type},
     visitor::Visitor,
 };
 
@@ -34,6 +34,7 @@ pub type Scope = HashMap<String, Symbol>;
 pub struct SymbolResolver {
     scopes: Vec<Scope>,
     pub errors: Vec<TeenyCompilerError>,
+    in_struct_decl: bool,
 }
 
 impl SymbolResolver {
@@ -41,6 +42,7 @@ impl SymbolResolver {
         Self {
             scopes: vec![Scope::new()],
             errors: vec![],
+            in_struct_decl: false,
         }
     }
 
@@ -84,6 +86,14 @@ impl SymbolResolver {
             .expect("always has at least one scope")
             .insert(sym.name.clone(), sym);
     }
+
+    pub fn is_global_scope(&self) -> bool {
+        self.scopes.len() == 1
+    }
+
+    pub fn global_scope(&self) -> &Scope {
+        &self.scopes[0]
+    }
 }
 
 impl Visitor for SymbolResolver {
@@ -108,12 +118,21 @@ impl Visitor for SymbolResolver {
 
     fn visit_fn(
         &mut self,
-        _span: Span,
+        span: Span,
         name: &String,
         params: &[(String, Type)],
         return_type: &Option<Type>,
         body: &Stmt,
     ) {
+        if !self.is_global_scope() && !self.in_struct_decl {
+            self.errors.push(TeenyCompilerError {
+                span,
+                kind: TeenyCompilerErrorKind::InvalidFnScope,
+            });
+            return;
+        }
+
+        // TODO: check if already exists
         self.insert(Symbol {
             name: name.clone(),
             kind: SymbolKind::Fn {
@@ -138,19 +157,39 @@ impl Visitor for SymbolResolver {
         self.exit_scope();
     }
 
-    fn visit_struct(&mut self, _span: Span, name: &String, members: &[Stmt]) {
+    fn visit_struct(&mut self, span: Span, name: &String, members: &[Stmt]) {
+        if !self.is_global_scope() {
+            self.errors.push(TeenyCompilerError {
+                span,
+                kind: TeenyCompilerErrorKind::InvalidStructScope,
+            });
+            return;
+        }
+
+        let struct_fields: Vec<(String, Type)> = members
+            .iter()
+            .filter_map(|m| match &m.node {
+                StmtKind::StructField { name, ty, .. } => {
+                    Some((name.clone(), ty.clone()))
+                },
+                _ => None,
+            })
+            .collect();
+
+        // TODO: check if already exists
         self.insert(Symbol {
             name: name.clone(),
             kind: SymbolKind::Struct {
-                // fields are checked during the type checking pass
-                fields: vec![],
+                fields: struct_fields,
             },
         });
 
         self.enter_scope();
+        self.in_struct_decl = true;
         for member in members {
             self.visit_stmt(member);
         }
+        self.in_struct_decl = false;
         self.exit_scope();
     }
 

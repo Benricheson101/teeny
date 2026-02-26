@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub trait Visitor {
-    fn visit_expr(&mut self, expr: &Expr) {
+    fn _visit_expr(&mut self, expr: &Expr) {
         let span = expr.span;
         match &expr.node {
             ExprKind::Integer(i) => self.visit_integer(span, *i),
@@ -40,6 +40,10 @@ pub trait Visitor {
                 self.visit_struct_init(span, name, fields)
             },
         }
+    }
+
+    fn visit_expr(&mut self, expr: &Expr) {
+        self._visit_expr(expr);
     }
 
     fn visit_integer(&mut self, _span: Span, _i: i16) {

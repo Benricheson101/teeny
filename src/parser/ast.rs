@@ -122,6 +122,8 @@ pub enum Type {
     Array { ty: Box<Type>, size: u16 },
     Struct(String),
     SelfType,
+    Void,
+    Error, // special error type used in the compiler
 }
 
 #[derive(Debug, Clone, PartialEq)]

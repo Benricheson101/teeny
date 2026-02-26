@@ -4,7 +4,10 @@ use std::{error::Error, fmt};
 
 use miette::Diagnostic;
 
-use crate::{lexer::token::Token, parser::ast::Span};
+use crate::{
+    lexer::token::Token,
+    parser::ast::{Span, Type},
+};
 
 #[derive(Debug, Clone, Diagnostic)]
 pub struct ParseError {
@@ -32,7 +35,14 @@ pub enum TeenyCompilerErrorKind {
     ExpectedToken(Token, Token),
     UnexpectedToken(Token),
     SyntaxError,
+
     IdentNotDefined(String),
+    InvalidFnScope,
+    InvalidStructScope,
+
+    TypeMismatch(Type, Type),
+    CannotInferType,
+    ParamCountMismatch(usize, usize),
 }
 
 impl fmt::Display for TeenyCompilerErrorKind {
@@ -57,6 +67,23 @@ impl fmt::Display for TeenyCompilerErrorKind {
             TeenyCompilerErrorKind::IdentNotDefined(name) => {
                 write!(f, "{name} is not defined")
             },
+            TeenyCompilerErrorKind::InvalidFnScope => {
+                write!(f, "Functions can only be declared in the global scope")
+            },
+            TeenyCompilerErrorKind::InvalidStructScope => {
+                write!(f, "Structs can only be declared in the global scope")
+            },
+            TeenyCompilerErrorKind::TypeMismatch(a, b) => write!(
+                f,
+                "Type mismatch, type {a:?} is not assignable to type {b:?}"
+            ),
+            TeenyCompilerErrorKind::CannotInferType => {
+                write!(f, "Unable to infer type")
+            },
+            TeenyCompilerErrorKind::ParamCountMismatch(a, b) => write!(
+                f,
+                "Incorrect number of parameters. Expected {a}, got {b}"
+            ),
         }
     }
 }

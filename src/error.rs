@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt};
 
-use miette::Diagnostic;
+use miette::{Diagnostic, NamedSource, Report};
 
 use crate::{
     lexer::token::Token,
@@ -73,10 +73,10 @@ impl fmt::Display for TeenyCompilerErrorKind {
             TeenyCompilerErrorKind::InvalidStructScope => {
                 write!(f, "Structs can only be declared in the global scope")
             },
-            TeenyCompilerErrorKind::TypeMismatch(a, b) => write!(
-                f,
-                "Type mismatch, type {a:?} is not assignable to type {b:?}"
-            ),
+            TeenyCompilerErrorKind::TypeMismatch(a, b) => {
+                use miette::NamedSource;
+                write!(f, "Type mismatch, expected {a:?} got {b:?}")
+            },
             TeenyCompilerErrorKind::CannotInferType => {
                 write!(f, "Unable to infer type")
             },
@@ -105,3 +105,14 @@ impl Error for TeenyCompilerError {
 }
 
 pub type TeenyResult<T> = Result<T, TeenyCompilerError>;
+
+pub fn print_errors<T>(source: &str, filename: &str, errors: &[T])
+where
+    T: Diagnostic + Send + Sync + Clone + 'static,
+{
+    for err in errors {
+        let source = NamedSource::new(filename, source.to_string());
+        let err = Report::new(err.clone()).with_source_code(source);
+        eprintln!("{:?}", err);
+    }
+}

@@ -27,6 +27,7 @@ pub enum TokenKind {
     StarEqual,
     SlashEqual,
     BangEqual,
+    PercentEqual,
 
     And,
     Or,

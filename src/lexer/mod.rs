@@ -151,6 +151,9 @@ impl<'a> Lexer<'a> {
                     '*' if self.next_matches('=') => StarEqual,
                     '*' => Star,
 
+                    '%' if self.next_matches('=') => PercentEqual,
+                    '%' => Percent,
+
                     '/' if self.next_matches('/') => {
                         while self.source.peek().is_some_and(|p| *p != '\n')
                             && !self.is_at_end()

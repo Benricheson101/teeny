@@ -328,7 +328,7 @@ impl<'a> Visitor for TypeChecker<'a> {
                     Err(e) => {
                         self.errors.push(e);
                         Type::Error
-                    }
+                    },
                 };
                 self.errors.push(TeenyCompilerError {
                     span,
@@ -356,7 +356,7 @@ impl<'a> Visitor for TypeChecker<'a> {
                     Err(e) => {
                         self.errors.push(e);
                         Type::Error
-                    }
+                    },
                 };
 
                 if ty != expected && ty != Type::Error {

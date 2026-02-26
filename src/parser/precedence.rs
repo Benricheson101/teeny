@@ -38,7 +38,8 @@ impl Precedence {
         use TokenKind::*;
 
         match kind {
-            Equal | PlusEqual | MinusEqual | SlashEqual => Self::Assignment,
+            Equal | PlusEqual | MinusEqual | SlashEqual | StarEqual
+            | PercentEqual => Self::Assignment,
             Or => Self::LogicalOr,
             And => Self::LogicalAnd,
             BitOr => Self::BitOr,

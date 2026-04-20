@@ -63,7 +63,7 @@ impl fmt::Display for TeenyCompilerErrorKind {
             TeenyCompilerErrorKind::UnexpectedToken(token) => {
                 write!(f, "Unexpected token {token:?}")
             },
-            TeenyCompilerErrorKind::SyntaxError => todo!(),
+            TeenyCompilerErrorKind::SyntaxError => write!(f, "Syntax error"),
             TeenyCompilerErrorKind::IdentNotDefined(name) => {
                 write!(f, "{name} is not defined")
             },

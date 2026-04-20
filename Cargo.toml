@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cmake = "0.1.57"
 miette = { version = "7.6.0", features = ["fancy"] }
 
 [lints.rust]

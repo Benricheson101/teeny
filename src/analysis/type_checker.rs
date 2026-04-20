@@ -127,7 +127,14 @@ impl<'a> TypeChecker<'a> {
                     });
                 }
 
-                todo!()
+                use TokenKind::*;
+                match op {
+                    Plus | Minus | Star | Slash | Percent | PlusPlus
+                    | MinusMinus | BitAnd | BitOr | BitXor | LeftShift
+                    | RightShift => Type::I16,
+                    And | Or | Bang | Gt | Gte | Lt | Lte => Type::Bool,
+                    _ => panic!("unknown type for {op:?}"),
+                }
             },
 
             ExprKind::Assignment { target, value } => {
@@ -225,11 +232,15 @@ impl<'a> TypeChecker<'a> {
                 }
             },
 
-            ExprKind::MemberAccess { object, name } => todo!(),
+            ExprKind::MemberAccess { object, name } => {
+                todo!()
+            },
 
             ExprKind::StaticAccess { target, member } => todo!(),
 
-            ExprKind::StructInit { name, fields } => todo!(),
+            ExprKind::StructInit { name, fields } => {
+                todo!()
+            },
         };
 
         Ok(ty)

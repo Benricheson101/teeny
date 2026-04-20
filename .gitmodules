@@ -1,0 +1,3 @@
+[submodule "vendor/TeenyAT"]
+	path = vendor/TeenyAT
+	url = git@github.com:miniat-amos/TeenyAT.git

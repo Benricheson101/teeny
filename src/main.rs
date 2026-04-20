@@ -1,4 +1,5 @@
 pub mod analysis;
+pub mod codegen;
 pub mod error;
 pub mod lexer;
 pub mod parser;
@@ -39,18 +40,24 @@ fn main() {
     ";
 
     let expr = r"
+        // const DEVICE: *i16 = -28672;
+
         struct Point {
             x: i16,
             y: i16,
         }
 
         fn add(a: i16, b: i16) -> i16 {
-            return a;
+            return a + b;
+        }
+
+        fn mod(a: i16, b: i16) -> i16 {
+            return a % b;
         }
 
         fn main() {
             let x = 5;
-            add(x, x);
+            let y = add(x, x);
         }
     ";
 
@@ -70,13 +77,13 @@ fn main() {
     let mut sr = SymbolResolver::new();
     if let Err(errors) = sr.check(&ast) {
         print_errors(expr, "main.tny", &errors);
-    }
+    } else {
+        let global_scope = sr.global_scope();
+        let mut tc = TypeChecker::new(global_scope);
+        for stmt in ast {
+            tc.visit_stmt(&stmt);
+        }
 
-    let global_scope = sr.global_scope();
-    let mut tc = TypeChecker::new(global_scope);
-    for stmt in ast {
-        tc.visit_stmt(&stmt);
+        print_errors(expr, "main.tny", &tc.errors);
     }
-
-    print_errors(expr, "main.tny", &tc.errors);
 }

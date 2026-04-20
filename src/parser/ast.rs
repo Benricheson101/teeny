@@ -27,15 +27,39 @@ impl From<Span> for SourceSpan {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static NEXT_NODE_ID: AtomicUsize = AtomicUsize::new(1);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeId(pub usize);
+
+impl NodeId {
+    pub fn next() -> Self {
+        NodeId(NEXT_NODE_ID.fetch_add(1, Ordering::SeqCst))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Spanned<T> {
     pub node: T,
     pub span: Span,
+    pub id: NodeId,
+}
+
+impl<T: PartialEq> PartialEq for Spanned<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.node == other.node && self.span == other.span
+    }
 }
 
 impl<T> Spanned<T> {
     pub fn new(node: T, span: Span) -> Self {
-        Self { node, span }
+        Self {
+            node,
+            span,
+            id: NodeId::next(),
+        }
     }
 }
 

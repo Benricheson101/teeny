@@ -1,6 +1,6 @@
 use crate::{
     lexer::token::TokenKind,
-    parser::ast::{Expr, ExprKind, Span, Stmt, StmtKind, Type},
+    parser::ast::{Expr, ExprKind, NodeId, Span, Stmt, StmtKind, Type},
 };
 
 pub trait Visitor {
@@ -133,13 +133,14 @@ pub trait Visitor {
 
     fn visit_stmt(&mut self, stmt: &Stmt) {
         let span = stmt.span;
+        let id = stmt.id;
         match &stmt.node {
             StmtKind::VarDecl {
                 name,
                 ty,
                 value,
                 mutable,
-            } => self.visit_var_decl(span, name, ty, value, *mutable),
+            } => self.visit_var_decl(id, span, name, ty, value, *mutable),
             StmtKind::Expr(expr) => self.visit_expr(expr),
             StmtKind::Block(stmts) => self.visit_block(span, stmts),
             StmtKind::Return(expr) => self.visit_return(span, expr),
@@ -168,6 +169,7 @@ pub trait Visitor {
 
     fn visit_var_decl(
         &mut self,
+        _id: NodeId,
         _span: Span,
         _name: &String,
         _ty: &Option<Type>,

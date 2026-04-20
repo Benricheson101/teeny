@@ -14,6 +14,7 @@ pub struct TypeChecker<'a> {
     scopes: Vec<Scope>,
     global_scope: &'a HashMap<String, Symbol>,
     pub errors: Vec<TeenyCompilerError>,
+    pub type_map: HashMap<crate::parser::ast::NodeId, Type>,
 
     current_fn_return_ty: Option<Type>,
 }
@@ -24,6 +25,7 @@ impl<'a> TypeChecker<'a> {
             scopes: vec![Scope::new()],
             errors: vec![],
             global_scope,
+            type_map: HashMap::new(),
             current_fn_return_ty: None,
         }
     }
@@ -250,6 +252,7 @@ impl<'a> TypeChecker<'a> {
 impl<'a> Visitor for TypeChecker<'a> {
     fn visit_var_decl(
         &mut self,
+        id: crate::parser::ast::NodeId,
         span: Span,
         name: &String,
         ty: &Option<Type>,
@@ -279,6 +282,8 @@ impl<'a> Visitor for TypeChecker<'a> {
         } else {
             inferred
         };
+
+        self.type_map.insert(id, resolved_ty.clone());
 
         // let ty = ty.clone().unwrap_or_else(|| self.infer_type(value));
         self.insert(name.clone(), resolved_ty);
@@ -429,8 +434,13 @@ impl<'a> Visitor for TypeChecker<'a> {
     }
 
     fn visit_expr(&mut self, expr: &Expr) {
-        if let Err(e) = self.infer_type(expr) {
-            self.errors.push(e);
+        match self.infer_type(expr) {
+            Ok(ty) => {
+                self.type_map.insert(expr.id, ty);
+            },
+            Err(e) => {
+                self.errors.push(e);
+            },
         }
 
         self._visit_expr(expr);

@@ -99,6 +99,7 @@ impl SymbolResolver {
 impl Visitor for SymbolResolver {
     fn visit_var_decl(
         &mut self,
+        _id: crate::parser::ast::NodeId,
         _span: Span,
         name: &String,
         ty: &Option<Type>,

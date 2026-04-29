@@ -20,7 +20,7 @@ pub static KEYWORDS: LazyLock<HashMap<&'static str, TokenKind>> =
         hm.insert("struct", Struct);
         hm.insert("true", True);
         hm.insert("false", False);
-        hm.insert("i16", I16);
+        hm.insert("int", Int);
         hm.insert("bool", Bool);
 
         hm

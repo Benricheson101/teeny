@@ -57,7 +57,7 @@ impl<'a> TypeChecker<'a> {
 
     fn infer_type(&self, expr: &Expr) -> Result<Type, TeenyCompilerError> {
         let ty: Type = match &expr.node {
-            ExprKind::Integer(_) => Type::I16,
+            ExprKind::Integer(_) => Type::Int,
             ExprKind::Bool(_) => Type::Bool,
             ExprKind::Ident(name) => self
                 .lookup(name)
@@ -67,7 +67,7 @@ impl<'a> TypeChecker<'a> {
                         match &sym.kind {
                             SymbolKind::Var { ty, .. } => ty.clone(),
                             SymbolKind::Fn { return_type, .. } => {
-                                return_type.clone()
+                                Some(return_type.clone().unwrap_or(Type::Void))
                             },
                             SymbolKind::Struct { .. } => {
                                 Some(Type::Struct(name.clone()))
@@ -104,23 +104,87 @@ impl<'a> TypeChecker<'a> {
                 });
             },
 
-            ExprKind::Increment { .. } => Type::I16,
-            ExprKind::Decrement { .. } => Type::I16,
+            ExprKind::Increment { .. } => Type::Int,
+            ExprKind::Decrement { .. } => Type::Int,
 
-            ExprKind::Unary { op, .. } if *op == TokenKind::Minus => Type::I16,
-            ExprKind::Unary { op, .. } if *op == TokenKind::Bang => Type::Bool,
-            ExprKind::Unary { .. } => {
-                return Err(TeenyCompilerError {
-                    span: expr.span,
-                    kind: TeenyCompilerErrorKind::CannotInferType,
-                });
+            ExprKind::Unary { op, rhs } => {
+                let rhs_ty = self.infer_type(rhs)?;
+                match op {
+                    TokenKind::Minus => {
+                        if rhs_ty == Type::Int {
+                            rhs_ty
+                        } else {
+                            return Err(TeenyCompilerError {
+                                span: expr.span,
+                                kind: TeenyCompilerErrorKind::TypeMismatch(
+                                    Type::Int,
+                                    rhs_ty,
+                                ),
+                            });
+                        }
+                    },
+                    TokenKind::Bang => {
+                        if rhs_ty == Type::Bool {
+                            Type::Bool
+                        } else {
+                            return Err(TeenyCompilerError {
+                                span: expr.span,
+                                kind: TeenyCompilerErrorKind::TypeMismatch(
+                                    Type::Bool,
+                                    rhs_ty,
+                                ),
+                            });
+                        }
+                    },
+                    TokenKind::Star => {
+                        if let Type::Pointer(inner) = rhs_ty {
+                            *inner
+                        } else {
+                            // Not a pointer
+                            return Err(TeenyCompilerError {
+                                span: expr.span,
+                                kind: TeenyCompilerErrorKind::CannotInferType, // FIXME: better error
+                            });
+                        }
+                    },
+                    TokenKind::BitAnd => Type::Pointer(Box::new(rhs_ty)),
+                    _ => {
+                        return Err(TeenyCompilerError {
+                            span: expr.span,
+                            kind: TeenyCompilerErrorKind::CannotInferType,
+                        });
+                    },
+                }
             },
 
             ExprKind::Binary { lhs, op, rhs } => {
                 let lhs_ty = self.infer_type(lhs)?;
                 let rhs_ty = self.infer_type(rhs)?;
 
-                if lhs_ty != rhs_ty {
+                // Bool and Int are the same 16-bit word at runtime.
+                // Allow mixing them in comparisons (e.g. `bool_val == 1`).
+                let is_int_bool_cmp = matches!(
+                    (&lhs_ty, &rhs_ty),
+                    (Type::Bool, Type::Int) | (Type::Int, Type::Bool)
+                ) && matches!(
+                    op,
+                    TokenKind::Equality
+                        | TokenKind::BangEqual
+                        | TokenKind::Lt
+                        | TokenKind::Lte
+                        | TokenKind::Gt
+                        | TokenKind::Gte
+                );
+
+                if lhs_ty != rhs_ty && !is_int_bool_cmp {
+                    if let Type::Pointer(_) = lhs_ty {
+                        if rhs_ty == Type::Int {
+                            if *op == TokenKind::Plus || *op == TokenKind::Minus
+                            {
+                                return Ok(lhs_ty);
+                            }
+                        }
+                    }
                     return Err(TeenyCompilerError {
                         span: expr.span,
                         kind: TeenyCompilerErrorKind::TypeMismatch(
@@ -129,12 +193,15 @@ impl<'a> TypeChecker<'a> {
                     });
                 }
 
+                let resolved_ty = lhs_ty;
+
                 use TokenKind::*;
                 match op {
                     Plus | Minus | Star | Slash | Percent | PlusPlus
                     | MinusMinus | BitAnd | BitOr | BitXor | LeftShift
-                    | RightShift => Type::I16,
+                    | RightShift => resolved_ty,
                     And | Or | Bang | Gt | Gte | Lt | Lte => Type::Bool,
+                    Equality | BangEqual => Type::Bool,
                     _ => panic!("unknown type for {op:?}"),
                 }
             },
@@ -144,6 +211,12 @@ impl<'a> TypeChecker<'a> {
                 let value_ty = self.infer_type(value)?;
 
                 if target_ty != value_ty {
+                    // Allow assigning a raw integer address to a pointer
+                    if matches!(target_ty, Type::Pointer(_))
+                        && value_ty == Type::Int
+                    {
+                        return Ok(target_ty);
+                    }
                     return Err(TeenyCompilerError {
                         span: expr.span,
                         kind: TeenyCompilerErrorKind::TypeMismatch(
@@ -213,11 +286,11 @@ impl<'a> TypeChecker<'a> {
                 let arr_ty = self.infer_type(array)?;
                 let idx_ty = self.infer_type(index)?;
 
-                if idx_ty != Type::I16 {
+                if idx_ty != Type::Int {
                     return Err(TeenyCompilerError {
                         span: index.span,
                         kind: TeenyCompilerErrorKind::TypeMismatch(
-                            Type::I16,
+                            Type::Int,
                             idx_ty,
                         ),
                     });
@@ -269,13 +342,18 @@ impl<'a> Visitor for TypeChecker<'a> {
 
         let resolved_ty = if let Some(ty) = ty {
             if ty != &inferred && inferred != Type::Error {
-                self.errors.push(TeenyCompilerError {
-                    span,
-                    kind: TeenyCompilerErrorKind::TypeMismatch(
-                        ty.clone(),
-                        inferred,
-                    ),
-                });
+                // Allow assigning a raw integer address to a pointer
+                let is_int_to_ptr =
+                    matches!(ty, Type::Pointer(_)) && inferred == Type::Int;
+                if !is_int_to_ptr {
+                    self.errors.push(TeenyCompilerError {
+                        span,
+                        kind: TeenyCompilerErrorKind::TypeMismatch(
+                            ty.clone(),
+                            inferred,
+                        ),
+                    });
+                }
             }
 
             ty.clone()
@@ -396,7 +474,7 @@ impl<'a> Visitor for TypeChecker<'a> {
     ) {
         // TODO: is it ok to compare on ints in teenyat?
         match self.infer_type(cond) {
-            Ok(Type::I16) | Ok(Type::Bool) => {},
+            Ok(Type::Int) | Ok(Type::Bool) => {},
 
             Ok(ty) => self.errors.push(TeenyCompilerError {
                 span,
@@ -417,7 +495,7 @@ impl<'a> Visitor for TypeChecker<'a> {
 
     fn visit_while(&mut self, span: Span, cond: &Expr, body: &Stmt) {
         match self.infer_type(cond) {
-            Ok(Type::I16) | Ok(Type::Bool) => {},
+            Ok(Type::Int) | Ok(Type::Bool) => {},
 
             Ok(ty) => self.errors.push(TeenyCompilerError {
                 span,
@@ -444,5 +522,299 @@ impl<'a> Visitor for TypeChecker<'a> {
         }
 
         self._visit_expr(expr);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        analysis::symbol::SymbolResolver,
+        lexer::Lexer,
+        parser::Parser,
+    };
+
+    fn check_types(input: &str) -> Vec<TeenyCompilerError> {
+        let lex = Lexer::new(input);
+        let tokens: Vec<_> = lex.collect();
+        let mut parser = Parser::new(tokens);
+        let (ast, errors) = parser.parse();
+        assert!(errors.is_empty(), "Parser errors: {:?}", errors);
+
+        let mut sr = SymbolResolver::new();
+        sr.check(&ast).expect("Symbol resolution failed");
+
+        let global_scope = sr.global_scope();
+        let mut tc = TypeChecker::new(global_scope);
+        for stmt in &ast {
+            tc.visit_stmt(stmt);
+        }
+
+        tc.errors.clone()
+    }
+
+    fn ok(input: &str) {
+        let errors = check_types(input);
+        assert!(errors.is_empty(), "Expected no errors, got: {:?}", errors);
+    }
+
+    fn err(input: &str) {
+        let errors = check_types(input);
+        assert!(!errors.is_empty(), "Expected type error but got none");
+    }
+
+    #[test]
+    fn var_decl_int_annotated() {
+        ok("fn main() { let x: int = 5; }");
+    }
+
+    #[test]
+    fn var_decl_int_inferred() {
+        ok("fn main() { let x = 5; }");
+    }
+
+    #[test]
+    fn var_decl_bool_annotated() {
+        ok("fn main() { let x: bool = true; }");
+    }
+
+    #[test]
+    fn var_decl_bool_inferred() {
+        ok("fn main() { let x = false; }");
+    }
+
+    #[test]
+    fn var_decl_uses_earlier_local() {
+        ok("fn main() { let x: int = 5; let y: int = x + 10; }");
+    }
+
+    #[test]
+    fn var_decl_type_mismatch_int_bool() {
+        err("fn main() { let x: int = true; }");
+    }
+
+    #[test]
+    fn var_decl_type_mismatch_bool_int() {
+        err("fn main() { let x: bool = 5; }");
+    }
+
+    #[test]
+    fn pointer_address_of() {
+        ok("fn main() { let x: int = 5; let ptr: *int = &x; }");
+    }
+
+    #[test]
+    fn pointer_deref() {
+        ok(
+            "fn main() { let x: int = 5; let ptr: *int = &x; let val: int = *ptr; }",
+        );
+    }
+
+    #[test]
+    fn pointer_arithmetic() {
+        ok("fn main() { let x: int = 5; let ptr = &x; let next = ptr + 1; }");
+    }
+
+    #[test]
+    fn pointer_from_integer_literal() {
+        ok("fn main() { let p: *int = 0x9000; }");
+    }
+
+    #[test]
+    fn pointer_assign_integer_address() {
+        ok("fn main() { let x: int = 5; let p: *int = &x; p = 0x8000; }");
+    }
+
+    #[test]
+    fn pointer_type_mismatch() {
+        err("fn main() { let x: int = 5; let ptr: *bool = &x; }");
+    }
+
+    #[test]
+    fn deref_non_pointer() {
+        err("fn main() { let x: int = 5; let y = *x; }");
+    }
+
+    #[test]
+    fn unary_minus_int() {
+        ok("fn main() { let x: int = -5; }");
+    }
+
+    #[test]
+    fn unary_minus_on_bool_errors() {
+        err("fn main() { let x = -true; }");
+    }
+
+    #[test]
+    fn unary_not_bool() {
+        ok("fn main() { let x: bool = !true; }");
+    }
+
+    #[test]
+    fn unary_not_on_int_errors() {
+        err("fn main() { let x = !5; }");
+    }
+
+    #[test]
+    fn binary_arithmetic() {
+        ok(
+            "fn main() { let a: int = 3 + 4; let b: int = 3 - 4; let c: int = 3 * 4; let d: int = 8 / 2; let e: int = 7 % 3; }",
+        );
+    }
+
+    #[test]
+    fn binary_bitwise() {
+        ok(
+            "fn main() { let a: int = 3 & 4; let b: int = 3 | 4; let c: int = 3 ^ 4; let d: int = 1 << 2; }",
+        );
+    }
+
+    #[test]
+    fn binary_comparisons_return_bool() {
+        ok(
+            "fn main() { let a: bool = 1 == 1; let b: bool = 1 != 2; let c: bool = 1 < 2; let d: bool = 2 > 1; let e: bool = 1 <= 1; let f: bool = 1 >= 1; }",
+        );
+    }
+
+    #[test]
+    fn binary_type_mismatch() {
+        err("fn main() { let x = 5 + true; }");
+    }
+
+    #[test]
+    fn bool_compared_to_int() {
+        ok("fn main() { let x = 5 == 5; if (x == 1) { } }");
+    }
+
+    #[test]
+    fn if_bool_literal_condition() {
+        ok("fn main() { if (true) { } }");
+    }
+
+    #[test]
+    fn if_int_literal_condition() {
+        ok("fn main() { if (1) { } }");
+    }
+
+    #[test]
+    fn if_equality_condition() {
+        ok("fn main() { let x: int = 5; let y: int = 5; if (x == y) { } }");
+    }
+
+    #[test]
+    fn if_comparison_condition() {
+        ok("fn main() { let x: int = 5; if (x > 0) { } }");
+    }
+
+    #[test]
+    fn if_else() {
+        ok("fn main() { let x: int = 1; if (x == 1) { } else { } }");
+    }
+
+    #[test]
+    fn while_bool_condition() {
+        ok("fn main() { while (true) { } }");
+    }
+
+    #[test]
+    fn while_int_condition() {
+        ok("fn main() { let x: int = 10; while (x) { } }");
+    }
+
+    #[test]
+    fn while_comparison_condition() {
+        ok("fn main() { let x: int = 5; while (x > 0) { } }");
+    }
+
+    #[test]
+    fn post_increment_type() {
+        ok("fn main() { let x: int = 0; x++; }");
+    }
+
+    #[test]
+    fn pre_increment_type() {
+        ok("fn main() { let x: int = 0; ++x; }");
+    }
+
+    #[test]
+    fn post_decrement_type() {
+        ok("fn main() { let x: int = 5; x--; }");
+    }
+
+    #[test]
+    fn compound_assign_plus() {
+        ok("fn main() { let x: int = 1; x += 2; }");
+    }
+
+    #[test]
+    fn compound_assign_minus() {
+        ok("fn main() { let x: int = 5; x -= 2; }");
+    }
+
+    #[test]
+    fn compound_assign_star() {
+        ok("fn main() { let x: int = 3; x *= 4; }");
+    }
+
+    #[test]
+    fn compound_assign_slash() {
+        ok("fn main() { let x: int = 8; x /= 2; }");
+    }
+
+    #[test]
+    fn fn_void_no_return() {
+        ok("fn foo() { } fn main() { foo(); }");
+    }
+
+    #[test]
+    fn fn_with_return_type() {
+        ok("fn answer() -> int { return 42; } fn main() { answer(); }");
+    }
+
+    #[test]
+    fn fn_with_params() {
+        ok(
+            "fn add(a: int, b: int) -> int { return a + b; } fn main() { add(1, 2); }",
+        );
+    }
+
+    #[test]
+    fn fn_return_type_mismatch() {
+        err("fn foo() -> int { return true; }");
+    }
+
+    #[test]
+    fn fn_return_value_from_void() {
+        err("fn foo() { return 5; }");
+    }
+
+    #[test]
+    fn fn_missing_return_value() {
+        err("fn foo() -> int { return; }");
+    }
+
+    #[test]
+    fn fn_call_wrong_arg_type() {
+        err("fn foo(x: int) { } fn main() { foo(true); }");
+    }
+
+    #[test]
+    fn fn_call_too_many_args() {
+        err("fn foo(x: int) { } fn main() { foo(1, 2); }");
+    }
+
+    #[test]
+    fn fn_call_too_few_args() {
+        err("fn foo(x: int, y: int) { } fn main() { foo(1); }");
+    }
+
+    #[test]
+    fn variable_shadow_in_inner_scope() {
+        ok("fn main() { let x: int = 1; if (1) { let x: bool = true; } }");
+    }
+
+    #[test]
+    fn variable_used_after_block() {
+        ok("fn main() { let x: int = 5; if (1) { } let y: int = x + 1; }");
     }
 }

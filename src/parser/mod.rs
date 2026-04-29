@@ -109,7 +109,7 @@ impl Parser {
         }
     }
 
-    fn consume_integer(&mut self) -> ParseResult<i16> {
+    fn consume_integer(&mut self) -> ParseResult<u16> {
         let token = self.peek();
 
         match token.kind {
@@ -190,7 +190,7 @@ impl Parser {
     }
 
     /// ```ebnf
-    /// type = "i16"
+    /// type = "int"
     ///      | "bool"
     ///      | IDENTIFIER
     ///      | "*" type
@@ -216,7 +216,7 @@ impl Parser {
         }
 
         match &self.advance().kind {
-            TokenKind::I16 => Ok(Type::I16),
+            TokenKind::Int => Ok(Type::Int),
             TokenKind::Bool => Ok(Type::Bool),
             TokenKind::Ident(name) => Ok(Type::Struct(name.clone())),
             t @ _ => Err(ParseError {
@@ -527,7 +527,10 @@ impl Parser {
                 Ok(Expr::new(ExprKind::Array(elems), span))
             },
 
-            tk @ (TokenKind::Minus | TokenKind::Bang) => {
+            tk @ (TokenKind::Minus
+            | TokenKind::Bang
+            | TokenKind::Star
+            | TokenKind::BitAnd) => {
                 let tk = tk.clone();
                 let right = self.parse_expr(Precedence::Prefix)?;
                 let span = Span::merge(span, right.span);
@@ -572,9 +575,17 @@ impl Parser {
             | TokenKind::PlusEqual
             | TokenKind::MinusEqual
             | TokenKind::StarEqual
-            | TokenKind::SlashEqual => {
-                let value = self.parse_expr(Precedence::Lowest)?;
-                if !matches!(lhs.node, ExprKind::Ident(_)) {
+            | TokenKind::SlashEqual
+            | TokenKind::PercentEqual => {
+                let rhs = self.parse_expr(Precedence::Lowest)?;
+                let is_valid_target = match &lhs.node {
+                    ExprKind::Ident(_) => true,
+                    ExprKind::Unary { op, .. } if *op == TokenKind::Star => {
+                        true
+                    },
+                    _ => false,
+                };
+                if !is_valid_target {
                     return Err(ParseError {
                         message: format!(
                             "Assigning to a non-variable: {lhs:?}"
@@ -582,6 +593,30 @@ impl Parser {
                         span: Span::new(op_token.start, op_token.end),
                     });
                 }
+
+                // Desugar compound assignments: x += rhs → x = x + rhs
+                let value = match op_token.kind {
+                    TokenKind::Equal => rhs,
+                    compound_op => {
+                        let bin_op = match compound_op {
+                            TokenKind::PlusEqual => TokenKind::Plus,
+                            TokenKind::MinusEqual => TokenKind::Minus,
+                            TokenKind::StarEqual => TokenKind::Star,
+                            TokenKind::SlashEqual => TokenKind::Slash,
+                            TokenKind::PercentEqual => TokenKind::Percent,
+                            _ => unreachable!(),
+                        };
+                        let span = Span::merge(lhs.span, rhs.span);
+                        Expr::new(
+                            ExprKind::Binary {
+                                lhs: Box::new(lhs.clone()),
+                                op: bin_op,
+                                rhs: Box::new(rhs),
+                            },
+                            span,
+                        )
+                    },
+                };
 
                 let span = Span::merge(lhs.span, value.span);
                 Ok(Expr::new(
@@ -1015,23 +1050,23 @@ mod tests {
             }
         );
 
-        let s = parse_stmt("let x: i16 = 5;");
+        let s = parse_stmt("let x: int = 5;");
         assert_eq!(
             s.node,
             StmtKind::VarDecl {
-                ty: Some(Type::I16),
+                ty: Some(Type::Int),
                 name: "x".to_string(),
                 value: Expr::new(ExprKind::Integer(5), Span::new(13, 14)),
                 mutable: true,
             }
         );
 
-        let s = parse_stmt("const x: [i16; 3] = 5;");
+        let s = parse_stmt("const x: [int; 3] = 5;");
         assert_eq!(
             s.node,
             StmtKind::VarDecl {
                 ty: Some(Type::Array {
-                    ty: Box::new(Type::I16),
+                    ty: Box::new(Type::Int),
                     size: 3,
                 }),
                 name: "x".to_string(),
@@ -1040,11 +1075,11 @@ mod tests {
             }
         );
 
-        let s = parse_stmt("let x: *i16 = 5;");
+        let s = parse_stmt("let x: *int = 5;");
         assert_eq!(
             s.node,
             StmtKind::VarDecl {
-                ty: Some(Type::Pointer(Box::new(Type::I16))),
+                ty: Some(Type::Pointer(Box::new(Type::Int))),
                 name: "x".to_string(),
                 value: Expr::new(ExprKind::Integer(5), Span::new(14, 15)),
                 mutable: true,
@@ -1120,22 +1155,22 @@ mod tests {
         assert_eq!(params.len(), 0);
         assert_eq!(return_type, None);
 
-        let stmt = parse_stmt("fn main(a: i16, b: i16) {}");
+        let stmt = parse_stmt("fn main(a: int, b: int) {}");
         let StmtKind::Fn { params, .. } = stmt.node else {
             panic!("not Fn");
         };
 
         assert_eq!(
             params,
-            vec![("a".to_string(), Type::I16), ("b".to_string(), Type::I16)]
+            vec![("a".to_string(), Type::Int), ("b".to_string(), Type::Int)]
         );
 
-        let stmt = parse_stmt("fn main(a: i16) -> *i16 {}");
+        let stmt = parse_stmt("fn main(a: int) -> *int {}");
         let StmtKind::Fn { return_type, .. } = stmt.node else {
             panic!("not Fn");
         };
 
-        assert_eq!(return_type, Some(Type::Pointer(Box::new(Type::I16))));
+        assert_eq!(return_type, Some(Type::Pointer(Box::new(Type::Int))));
     }
 
     #[test]
@@ -1144,7 +1179,7 @@ mod tests {
             "
             struct User {
                 name: string,
-                id: i16,
+                id: int,
 
                 fn get_id(self) {
                     return self.id;
@@ -1164,5 +1199,41 @@ mod tests {
     #[test]
     fn parse_errors_syncronize() {
         // TODO
+    }
+
+    #[test]
+    fn parse_pointers() {
+        let stmt = parse_stmt("let ptr = &x;");
+        let StmtKind::VarDecl { value, .. } = stmt.node else {
+            panic!("not VarDecl")
+        };
+        assert!(matches!(
+            value.node,
+            ExprKind::Unary {
+                op: TokenKind::BitAnd,
+                ..
+            }
+        ));
+
+        let stmt = parse_stmt("let val = *ptr;");
+        let StmtKind::VarDecl { value, .. } = stmt.node else {
+            panic!("not VarDecl")
+        };
+        assert!(matches!(
+            value.node,
+            ExprKind::Unary {
+                op: TokenKind::Star,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn parse_int() {
+        let stmt = parse_stmt("let x: int = 5;");
+        let StmtKind::VarDecl { ty, .. } = stmt.node else {
+            panic!("not VarDecl")
+        };
+        assert_eq!(ty, Some(Type::Int));
     }
 }

@@ -49,7 +49,7 @@ pub enum TokenKind {
     ColonColon,
     Arrow,
 
-    Integer(i16),
+    Integer(u16),
 
     // keywords
     Fn,
@@ -69,7 +69,7 @@ pub enum TokenKind {
 
     // types
     Bool,
-    I16,
+    Int,
 
     Eof,
 }

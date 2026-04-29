@@ -46,7 +46,7 @@ pub trait Visitor {
         self._visit_expr(expr);
     }
 
-    fn visit_integer(&mut self, _span: Span, _i: i16) {
+    fn visit_integer(&mut self, _span: Span, _i: u16) {
     }
 
     fn visit_bool(&mut self, _span: Span, _b: bool) {
@@ -256,7 +256,7 @@ mod tests {
     }
 
     impl Visitor for CounterVisitor {
-        fn visit_integer(&mut self, _span: Span, _i: i16) {
+        fn visit_integer(&mut self, _span: Span, _i: u16) {
             self.integer_count += 1;
         }
 
@@ -415,7 +415,7 @@ mod tests {
     fn test_visit_var_decl() {
         let stmt = spanned(StmtKind::VarDecl {
             name: "x".to_string(),
-            ty: Some(Type::I16),
+            ty: Some(Type::Int),
             value: spanned(ExprKind::Integer(42)),
             mutable: true,
         });
@@ -502,8 +502,8 @@ mod tests {
         let body: Stmt = spanned(StmtKind::Block(vec![return_stmt]));
         let stmt = spanned(StmtKind::Fn {
             name: "foo".to_string(),
-            params: vec![("x".to_string(), Type::I16)],
-            return_type: Some(Type::I16),
+            params: vec![("x".to_string(), Type::Int)],
+            return_type: Some(Type::Int),
             body: Box::new(body),
         });
 
@@ -517,11 +517,11 @@ mod tests {
             members: vec![
                 spanned(StmtKind::StructField {
                     name: "x".to_string(),
-                    ty: Type::I16,
+                    ty: Type::Int,
                 }),
                 spanned(StmtKind::StructField {
                     name: "y".to_string(),
-                    ty: Type::I16,
+                    ty: Type::Int,
                 }),
             ],
         });

@@ -65,7 +65,7 @@ impl<T> Spanned<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
-    Integer(i16),
+    Integer(u16),
     Bool(bool),
     Ident(String),
     // String(String), // TODO: do we need this?
@@ -140,7 +140,7 @@ pub type Expr = Spanned<ExprKind>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    I16,
+    Int,
     Bool,
     Pointer(Box<Type>),
     Array { ty: Box<Type>, size: u16 },
@@ -148,6 +148,21 @@ pub enum Type {
     SelfType,
     Void,
     Error, // special error type used in the compiler
+}
+
+impl Type {
+    pub fn size(&self) -> u16 {
+        match self {
+            Type::Int => 1,
+            Type::Bool => 1,
+            Type::Pointer(_) => 1,
+            Type::Array { size, ty } => ty.size() * size,
+            Type::Struct(_) => todo!("struct sizing not implemented yet"),
+            Type::SelfType => 1, // pointer to struct
+            Type::Void => 0,
+            Type::Error => 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

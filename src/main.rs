@@ -1,88 +1,64 @@
 pub mod analysis;
+pub mod cli;
+pub mod codegen;
 pub mod error;
 pub mod lexer;
 pub mod parser;
 pub mod visitor;
 
+use std::fs;
+
 use analysis::{symbol::SymbolResolver, type_checker::TypeChecker};
+use clap::Parser;
+use codegen::CodeGenerator;
 use lexer::Lexer;
-use parser::Parser;
 use visitor::Visitor;
 
-#[cfg(not(coverage))]
+use crate::error::print_errors;
+
+// #[cfg(not(coverage))]
 fn main() {
-    use crate::error::print_errors;
+    let cli = cli::Cli::parse();
 
-    let expr = r"
-        struct Point {
-            x: i16,
-            y: i16,
+    let expr = fs::read_to_string(cli.in_file).unwrap();
 
-            fn add(self, other: Point) -> Point {
-                return Point { x: self.x + other.x, y: self.y + other.y };
-            }
-        }
+    // println!("{expr}");
 
-        fn add(a: i16, b: i16) -> i16 {
-            return a + b;
-        }
-
-        fn main() {
-            let a = Point { x: 0, y: 0 };
-            let b = Point { x: 5, y: 10 };
-            let c = a.add(b);
-
-            let x = 1;
-            let y = 10;
-            let z = add(x, y);
-        }
-    ";
-
-    let expr = r"
-        // const DEVICE: *i16 = -28672;
-
-        struct Point {
-            x: i16,
-            y: i16,
-        }
-
-        fn add(a: i16, b: i16) -> i16 {
-            return a + b;
-        }
-
-        fn mod(a: i16, b: i16) -> i16 {
-            return a % b;
-        }
-
-        fn main() {
-            let x = 5;
-            let y = add(x, x);
-        }
-    ";
-
-    println!("{expr}");
-
-    let lex = Lexer::new(expr);
+    let lex = Lexer::new(&expr);
     let tokens: Vec<_> = lex.collect();
-    println!("{:#?}", &tokens);
+    // println!("{:#?}", &tokens);
 
-    let mut prs = Parser::new(tokens);
+    let mut prs = parser::Parser::new(tokens);
     let (ast, errors) = prs.parse();
 
-    println!("{ast:#?}");
+    // println!("{ast:#?}");
 
-    print_errors(expr, "main.tny", &errors);
+    print_errors(&expr, "main.tny", &errors);
 
     let mut sr = SymbolResolver::new();
     if let Err(errors) = sr.check(&ast) {
-        print_errors(expr, "main.tny", &errors);
+        print_errors(&expr, "main.tny", &errors);
     } else {
         let global_scope = sr.global_scope();
         let mut tc = TypeChecker::new(global_scope);
-        for stmt in ast {
-            tc.visit_stmt(&stmt);
+        for stmt in &ast {
+            tc.visit_stmt(stmt);
         }
 
-        print_errors(expr, "main.tny", &tc.errors);
+        print_errors(&expr, "main.tny", &tc.errors);
+
+        if tc.errors.is_empty() {
+            let mut codegen = CodeGenerator::new(tc.type_map);
+            for stmt in &ast {
+                codegen.visit_stmt(stmt);
+            }
+            // println!("{}", codegen.output);
+
+            if let Some(out_file) = cli.out_file {
+                fs::write(out_file, codegen.output).unwrap();
+            } else {
+                print!("{}", codegen.output);
+            }
+        }
     }
 }

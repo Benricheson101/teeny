@@ -27,8 +27,8 @@ impl CodeGenerator {
   cal !main
   jmp !halt
 !halt
-  str [0x9aac], rZ
   jmp !halt\n";
+        // str [0x9aac], rZ
 
         Self {
             output: prelude.to_string(),

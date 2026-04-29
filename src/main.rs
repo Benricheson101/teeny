@@ -6,7 +6,7 @@ pub mod lexer;
 pub mod parser;
 pub mod visitor;
 
-use std::fs;
+use std::{fs, process};
 
 use analysis::{symbol::SymbolResolver, type_checker::TypeChecker};
 use clap::Parser;
@@ -33,11 +33,15 @@ fn main() {
 
     // println!("{ast:#?}");
 
-    print_errors(&expr, "main.tny", &errors);
+    if !errors.is_empty() {
+        print_errors(&expr, "main.tny", &errors);
+        process::exit(1);
+    }
 
     let mut sr = SymbolResolver::new();
     if let Err(errors) = sr.check(&ast) {
         print_errors(&expr, "main.tny", &errors);
+        process::exit(1);
     } else {
         let global_scope = sr.global_scope();
         let mut tc = TypeChecker::new(global_scope);
@@ -47,18 +51,20 @@ fn main() {
 
         print_errors(&expr, "main.tny", &tc.errors);
 
-        if tc.errors.is_empty() {
-            let mut codegen = CodeGenerator::new(tc.type_map);
-            for stmt in &ast {
-                codegen.visit_stmt(stmt);
-            }
-            // println!("{}", codegen.output);
+        if !tc.errors.is_empty() {
+            process::exit(1);
+        }
 
-            if let Some(out_file) = cli.out_file {
-                fs::write(out_file, codegen.output).unwrap();
-            } else {
-                print!("{}", codegen.output);
-            }
+        let mut codegen = CodeGenerator::new(tc.type_map);
+        for stmt in &ast {
+            codegen.visit_stmt(stmt);
+        }
+        // println!("{}", codegen.output);
+
+        if let Some(out_file) = cli.out_file {
+            fs::write(out_file, codegen.output).unwrap();
+        } else {
+            print!("{}", codegen.output);
         }
     }
 }

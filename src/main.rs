@@ -59,12 +59,12 @@ fn main() {
         for stmt in &ast {
             codegen.visit_stmt(stmt);
         }
-        // println!("{}", codegen.output);
 
+        let output = codegen.into_output();
         if let Some(out_file) = cli.out_file {
-            fs::write(out_file, codegen.output).unwrap();
+            fs::write(out_file, output).unwrap();
         } else {
-            print!("{}", codegen.output);
+            print!("{}", output);
         }
     }
 }

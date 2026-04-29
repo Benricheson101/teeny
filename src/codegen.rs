@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     lexer::token::TokenKind,
@@ -14,6 +14,8 @@ pub struct VariableLocation {
 
 pub struct CodeGenerator {
     pub output: String,
+    const_directives: String,
+    consts: HashSet<String>,
     label_count: usize,
     type_map: HashMap<NodeId, Type>,
 
@@ -32,11 +34,17 @@ impl CodeGenerator {
 
         Self {
             output: prelude.to_string(),
+            const_directives: String::new(),
+            consts: HashSet::new(),
             label_count: 0,
             type_map,
             scopes: vec![HashMap::new()],
             current_local_offset: 0,
         }
+    }
+
+    pub fn into_output(self) -> String {
+        format!("{}{}", self.const_directives, self.output)
     }
 
     pub fn emit(&mut self, instruction: &str) {
@@ -103,7 +111,10 @@ impl Visitor for CodeGenerator {
     }
 
     fn visit_ident(&mut self, _span: Span, ident: &String) {
-        if let Some(loc) = self.lookup_var(ident) {
+        if self.consts.contains(ident) {
+            self.emit(&format!("set rA, {}", ident));
+            self.emit("psh rA");
+        } else if let Some(loc) = self.lookup_var(ident) {
             self.emit(&format!("lod rA, {}", Self::frame_addr(loc.offset)));
             self.emit("psh rA");
         }
@@ -279,8 +290,22 @@ impl Visitor for CodeGenerator {
         name: &String,
         _ty: &Option<Type>,
         value: &Expr,
-        _mutable: bool,
+        mutable: bool,
     ) {
+        if !mutable {
+            let val = match &value.node {
+                ExprKind::Integer(i) => *i,
+                ExprKind::Bool(b) => {
+                    if *b { 1 } else { 0 }
+                },
+                _ => todo!("const initializer must be an integer or bool literal"),
+            };
+            self.const_directives
+                .push_str(&format!(".const {} {}\n", name, val));
+            self.consts.insert(name.clone());
+            return;
+        }
+
         self.visit_expr(value);
         let ty = self.type_map.get(&id).cloned().unwrap_or(Type::Int);
         self.insert_var(name.clone(), ty.size());
@@ -514,7 +539,7 @@ mod tests {
         for stmt in &ast {
             codegen.visit_stmt(stmt);
         }
-        codegen.output
+        codegen.into_output()
     }
 
     #[test]
@@ -655,6 +680,35 @@ mod tests {
             "fn add4(a: int, b: int, c: int, d: int) -> int { return d; } fn main() { add4(1, 2, 3, 4); }",
         );
         assert!(code.contains("lod rA, [rE + 3]"));
+    }
+
+    #[test]
+    fn test_codegen_const_local() {
+        let code = generate_code("fn main() { const MAX = 100; MAX; }");
+        assert!(code.starts_with(".const MAX 100\n"));
+        assert!(code.contains("set rA, MAX"));
+        assert!(!code.contains("psh rA\n    lod rA"));
+    }
+
+    #[test]
+    fn test_codegen_const_global() {
+        let code = generate_code("const PORT = 0x8002; fn main() { PORT; }");
+        assert!(code.starts_with(".const PORT 32770\n"));
+        assert!(code.contains("set rA, PORT"));
+    }
+
+    #[test]
+    fn test_codegen_const_bool() {
+        let code = generate_code("const FLAG = true; fn main() { FLAG; }");
+        assert!(code.starts_with(".const FLAG 1\n"));
+        assert!(code.contains("set rA, FLAG"));
+    }
+
+    #[test]
+    fn test_codegen_const_not_on_stack() {
+        let code = generate_code("fn main() { const X = 42; let y = 1; y; }");
+        assert!(code.contains(".const X 42"));
+        assert!(code.contains("lod rA, [rE - 0]"));
     }
 
     #[test]

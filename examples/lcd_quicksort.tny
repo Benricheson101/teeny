@@ -145,3 +145,5 @@ fn main() {
     // spin
     while (true) {}
 }
+
+// vim: set syntax=rust :

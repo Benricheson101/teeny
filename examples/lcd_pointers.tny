@@ -11,3 +11,5 @@ fn main() {
     mutate(&val);
     *TERM = val;
 }
+
+// vim: set syntax=rust :

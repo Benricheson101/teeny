@@ -15,3 +15,5 @@ fn main() {
 
     *TERM = step_3;
 }
+
+// vim: set syntax=rust :

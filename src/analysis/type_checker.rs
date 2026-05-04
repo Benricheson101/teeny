@@ -677,6 +677,21 @@ mod tests {
     }
 
     #[test]
+    fn binary_logical_and_returns_bool() {
+        ok("fn main() { let a: bool = true && false; }");
+    }
+
+    #[test]
+    fn binary_logical_or_returns_bool() {
+        ok("fn main() { let a: bool = false || true; }");
+    }
+
+    #[test]
+    fn binary_logical_type_mismatch() {
+        err("fn main() { let x = true && 5; }");
+    }
+
+    #[test]
     fn binary_type_mismatch() {
         err("fn main() { let x = 5 + true; }");
     }

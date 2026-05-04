@@ -254,6 +254,34 @@ impl Visitor for CodeGenerator {
                 self.emit_label(&l_end);
             },
 
+            And => {
+                let l_false = self.next_label("and_false");
+                let l_end = self.next_label("and_end");
+                self.emit("cmp rA, rZ");
+                self.emit(&format!("je {}", l_false));
+                self.emit("cmp rB, rZ");
+                self.emit(&format!("je {}", l_false));
+                self.emit("set rA, 1");
+                self.emit(&format!("jmp {}", l_end));
+                self.emit_label(&l_false);
+                self.emit("set rA, 0");
+                self.emit_label(&l_end);
+            },
+
+            Or => {
+                let l_true = self.next_label("or_true");
+                let l_end = self.next_label("or_end");
+                self.emit("cmp rA, rZ");
+                self.emit(&format!("jne {}", l_true));
+                self.emit("cmp rB, rZ");
+                self.emit(&format!("jne {}", l_true));
+                self.emit("set rA, 0");
+                self.emit(&format!("jmp {}", l_end));
+                self.emit_label(&l_true);
+                self.emit("set rA, 1");
+                self.emit_label(&l_end);
+            },
+
             _ => unimplemented!("binary {:?}", op),
         }
 
@@ -615,6 +643,29 @@ mod tests {
         let code = generate_code("fn main() { -5; !true; }");
         assert!(code.contains("neg rA"));
         assert!(code.contains("je !not_true_"));
+    }
+
+    #[test]
+    fn test_codegen_logical_and() {
+        let code = generate_code("fn main() { true && false; }");
+        assert!(code.contains("je !and_false_"));
+        assert!(code.contains("!and_false_"));
+        assert!(code.contains("!and_end_"));
+    }
+
+    #[test]
+    fn test_codegen_logical_or() {
+        let code = generate_code("fn main() { true || false; }");
+        assert!(code.contains("jne !or_true_"));
+        assert!(code.contains("!or_true_"));
+        assert!(code.contains("!or_end_"));
+    }
+
+    #[test]
+    fn test_codegen_logical_not() {
+        let code = generate_code("fn main() { !true; }");
+        assert!(code.contains("je !not_true_"));
+        assert!(code.contains("!not_end_"));
     }
 
     #[test]

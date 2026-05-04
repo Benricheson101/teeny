@@ -121,4 +121,4 @@ ret
 # Compatibility
 
 > [!NOTE]
-> This code was last tested with `miniat-amos/TeenyAT@31658d05288a91c3231a40a7da9cd0ec7c48a6ed`. Support for later versions is not guaranteed.
+> This code was last tested with [`miniat-amos/TeenyAT@31658d0`](https://github.com/miniat-amos/TeenyAT/tree/31658d05288a91c3231a40a7da9cd0ec7c48a6ed). Support for later versions is not guaranteed.

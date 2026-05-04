@@ -25,15 +25,14 @@ pub struct CodeGenerator {
 
 impl CodeGenerator {
     pub fn new(type_map: HashMap<NodeId, Type>) -> Self {
-        let prelude = "!start
+        let prologue = "!start
   cal !main
   jmp !halt
 !halt
   jmp !halt\n";
-        // str [0x9aac], rZ
 
         Self {
-            output: prelude.to_string(),
+            output: prologue.to_string(),
             const_directives: String::new(),
             consts: HashSet::new(),
             label_count: 0,

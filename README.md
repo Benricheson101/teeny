@@ -117,3 +117,8 @@ ret
 # Resources Used
 [Simple but Powerful Pratt Parsing](https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html) \
 [Crafting Interpreters](https://craftinginterpreters.com/)
+
+# Compatibility
+
+> [!NOTE]
+> This code was last tested with `miniat-amos/TeenyAT@31658d05288a91c3231a40a7da9cd0ec7c48a6ed`. Support for later versions is not guaranteed.

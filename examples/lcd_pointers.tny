@@ -1,0 +1,13 @@
+const TERM: *int = 0xFFFF;
+
+fn mutate(a: *int) {
+    *a = 5555;
+}
+
+fn main() {
+    let val = 3;
+    *TERM = val;
+
+    mutate(&val);
+    *TERM = val;
+}

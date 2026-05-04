@@ -1,3 +1,5 @@
 /target
 .DS_STORE
 /lcov.info
+/examples/*.bin
+/examples/*.asm

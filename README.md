@@ -3,6 +3,23 @@
 
 <h1 align="center">Teeny - CS Capstone Project</h1>
 
+## Usage
+```
+Usage: teenyc [OPTIONS] <IN_FILE>
+
+Arguments:
+  <IN_FILE>  the teeny script to compile
+
+Options:
+  -o, --out-file <OUT_FILE>  where to output (default: out.bin)
+  -h, --help                 Print help
+```
+
+```sh
+$ cargo build --release
+$ ./target/release/teenyc ./program.tny -o ./program.asm
+```
+
 ## Compiler Architecture
 
 ### Parser

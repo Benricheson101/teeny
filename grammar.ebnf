@@ -1,9 +1,15 @@
-program = { decl } ;
+program = { stmt } ;
 
-decl = var_decl
-     | fn_decl;
+stmt = var_decl
+     | fn_decl
+     | struct_decl
+     | if_stmt
+     | while_stmt
+     | return_stmt
+     | block
+     | expr_stmt ;
 
-block = "{" { stmt } "}"}
+block = "{" { stmt } "}" ;
 
 var_decl = ("let" | "const") IDENTIFIER [ ":" type ] "=" expression ";" ;
 
@@ -11,18 +17,77 @@ fn_decl = "fn" IDENTIFIER "(" [ param_list ] ")" [ "->" type ] block ;
 
 param_list = param { "," param } ;
 
-param = IDENTIFIER ":" type ;
+param = "self"
+      | IDENTIFIER ":" type ;
 
 struct_decl = "struct" IDENTIFIER "{" { struct_member } "}" ;
 
 struct_member = field_decl
-              | function_decl ;
+              | fn_decl ;
 
 field_decl = IDENTIFIER ":" type [ "," ] ;
 
-return = "return" [ expression ] ";" ;
+if_stmt = "if" "(" expression ")" stmt [ "else" stmt ] ;
 
-type = "i16"
+while_stmt = "while" "(" expression ")" stmt ;
+
+return_stmt = "return" [ expression ] ";" ;
+
+expr_stmt = expression ";" ;
+
+(* expressions, listed in order of increasing precedence *)
+
+expression = assignment ;
+
+assignment = logical_or [ ("=" | "+=" | "-=" | "*=" | "/=" | "%=") expression ] ;
+
+logical_or = logical_and { "||" logical_and } ;
+
+logical_and = bit_or { "&&" bit_or } ;
+
+bit_or = bit_xor { "|" bit_xor } ;
+
+bit_xor = bit_and { "^" bit_and } ;
+
+bit_and = equality { "&" equality } ;
+
+equality = comparison { ("==" | "!=") comparison } ;
+
+comparison = bit_shift { ("<" | "<=" | ">" | ">=") bit_shift } ;
+
+bit_shift = sum { ("<<" | ">>") sum } ;
+
+sum = product { ("+" | "-") product } ;
+
+product = prefix { ("*" | "/" | "%") prefix } ;
+
+prefix = ("-" | "!" | "*" | "&" | "++" | "--") prefix
+       | postfix ;
+
+postfix = primary { postfix_op } ;
+
+postfix_op = "++"
+           | "--"
+           | "(" [ arg_list ] ")"
+           | "[" expression "]"
+           | "." IDENTIFIER
+           | "::" IDENTIFIER
+           | "{" struct_init_fields "}" ;
+
+primary = INTEGER
+        | "true"
+        | "false"
+        | IDENTIFIER
+        | "(" expression ")"
+        | "[" [ arg_list ] "]" ;
+
+arg_list = expression { "," expression } ;
+
+struct_init_fields = struct_init_field { "," struct_init_field } ;
+
+struct_init_field = IDENTIFIER [ ":" expression ] ;
+
+type = "int"
      | "bool"
      | IDENTIFIER
      | "*" type

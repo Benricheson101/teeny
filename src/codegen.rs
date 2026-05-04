@@ -296,9 +296,15 @@ impl Visitor for CodeGenerator {
             let val = match &value.node {
                 ExprKind::Integer(i) => *i,
                 ExprKind::Bool(b) => {
-                    if *b { 1 } else { 0 }
+                    if *b {
+                        1
+                    } else {
+                        0
+                    }
                 },
-                _ => todo!("const initializer must be an integer or bool literal"),
+                _ => todo!(
+                    "const initializer must be an integer or bool literal"
+                ),
             };
             self.const_directives
                 .push_str(&format!(".const {} {}\n", name, val));

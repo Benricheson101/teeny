@@ -1,0 +1,135 @@
+const LIVESCREEN   : *int = 0x9000;
+const UPDATESCREEN : *int = 0xA000;
+const X1           : *int = 0xD000;
+const Y1           : *int = 0xD001;
+const X2           : *int = 0xD002;
+const Y2           : *int = 0xD003;
+const STROKE       : *int = 0xD010;
+const FILL         : *int = 0xD011;
+const DRAWFILL     : *int = 0xD012;
+const DRAWSTROKE   : *int = 0xD013;
+const UPDATE       : *int = 0xE000;
+const RECT         : *int = 0xE010;
+const LINE         : *int = 0xE011;
+const POINT        : *int = 0xE012;
+const MOUSEB       : *int = 0xFFFB;
+const MOUSEX       : *int = 0xFFFC;
+const MOUSEY       : *int = 0xFFFD;
+const KEY          : *int = 0xFFFE;
+const TERM         : *int = 0xFFFF;
+const TNY_RANDOM   : *int = 0x8010;
+
+fn draw_line(x: int, len: int, color: int) {
+    *STROKE = 0xA81;
+
+    *X1 = x;
+    *Y1 = 0;
+    *X2 = x;
+    *Y2 = 63;
+    *LINE = 0;
+
+    *STROKE = color;
+    *Y1 = 63 - len;
+    *LINE = 0;
+}
+
+fn draw_array(arr: *int, len: int) {
+    let i = 0;
+    while (i < len) {
+        draw_line(i, *(arr + i), 0);
+        i++;
+    }
+
+    *UPDATE = 0;
+}
+
+fn rand_int(min: int, max: int) -> int {
+    let ri = *TNY_RANDOM;
+    return (ri % (max - min + 1)) + min;
+}
+
+fn swap(a: *int, b: *int) {
+    let tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
+
+fn partition(arr: *int, low: int, high: int) -> int {
+    let pivot = *(arr + high);
+    draw_line(high, pivot, 0x333);
+    *UPDATE = 0;
+
+    let i = low;
+    let j = i;
+    while (j < high) {
+        let arr_i = arr + i;
+        let arr_j = arr + j;
+
+        draw_line(j, *arr_j, 0xf0);
+        *UPDATE = 0;
+
+        if (*arr_j <= pivot) {
+            swap(arr_i, arr_j);
+
+            draw_line(i, *arr_i, 0xf00);
+            draw_line(j, *arr_j, 0xf00);
+            *UPDATE = 0;
+
+            draw_line(i, *arr_i, 0x0);
+            i++;
+        }
+
+        draw_line(j, *arr_j, 0x0);
+
+        j++;
+
+    }
+
+    let arr_i = arr + i;
+    let arr_h = arr + high;
+    swap(arr_i, arr_h);
+
+    draw_line(i, *arr_i, 0x0);
+    draw_line(high, *arr_h, 0x0);
+    *UPDATE = 0;
+
+    return i;
+}
+
+fn quicksort(arr: *int, low: int, high: int) {
+    if (low >= high || low < 0) {
+        return;
+    }
+
+    let p = partition(arr, low, high);
+
+    let p1 = p - 1;
+    quicksort(arr, low, p1);
+
+    p1 = p + 1;
+    quicksort(arr, p1, high);
+}
+
+fn main() {
+    let arr_start: *int = 0x6000;
+    let arr_len = 64;
+
+    let i = 0;
+    while (i < arr_len) {
+        let nr = rand_int(1, 63);
+        draw_line(i, nr, 0x0);
+        *(arr_start + i) = nr;
+
+        i++;
+    }
+
+    *UPDATE = 0;
+
+    draw_array(arr_start, arr_len);
+    quicksort(arr_start, 0, arr_len - 1);
+
+    // spin
+    while (true) {}
+}
+
+// vim: set syntax=rust :

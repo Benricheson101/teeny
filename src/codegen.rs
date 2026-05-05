@@ -199,6 +199,9 @@ impl Visitor for CodeGenerator {
             TokenKind::Star => {
                 self.emit("lod rA, [rA]");
             },
+            TokenKind::BitNot => {
+                self.emit("xor rA, 65535");
+            },
             _ => unimplemented!("unary {:?}", op),
         }
 
@@ -228,7 +231,11 @@ impl Visitor for CodeGenerator {
             BitAnd => self.emit("and rA, rB"),
             BitOr => self.emit("or rA, rB"),
             BitXor => self.emit("xor rA, rB"),
-            LeftShift => self.emit("shf rA, rB"),
+            LeftShift => {
+                self.emit("neg rB");
+                self.emit("shf rA, rB");
+            },
+            RightShift => self.emit("shf rA, rB"),
 
             Equality | BangEqual | Gt | Gte | Lt | Lte => {
                 self.emit("cmp rA, rB");
@@ -621,7 +628,20 @@ mod tests {
         assert!(code.contains("and rA, rB"));
         assert!(code.contains("or rA, rB"));
         assert!(code.contains("xor rA, rB"));
+        assert!(code.contains("neg rB\n    shf rA, rB"));
+    }
+
+    #[test]
+    fn test_codegen_right_shift() {
+        let code = generate_code("fn main() { 5 >> 2; }");
         assert!(code.contains("shf rA, rB"));
+        assert!(!code.contains("neg rB"));
+    }
+
+    #[test]
+    fn test_codegen_bitwise_not() {
+        let code = generate_code("fn main() { ~5; }");
+        assert!(code.contains("xor rA, 65535"));
     }
 
     #[test]

@@ -530,7 +530,8 @@ impl Parser {
             tk @ (TokenKind::Minus
             | TokenKind::Bang
             | TokenKind::Star
-            | TokenKind::BitAnd) => {
+            | TokenKind::BitAnd
+            | TokenKind::BitNot) => {
                 let tk = tk.clone();
                 let right = self.parse_expr(Precedence::Prefix)?;
                 let span = Span::merge(span, right.span);

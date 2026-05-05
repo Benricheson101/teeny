@@ -148,6 +148,19 @@ impl<'a> TypeChecker<'a> {
                         }
                     },
                     TokenKind::BitAnd => Type::Pointer(Box::new(rhs_ty)),
+                    TokenKind::BitNot => {
+                        if rhs_ty == Type::Int {
+                            Type::Int
+                        } else {
+                            return Err(TeenyCompilerError {
+                                span: expr.span,
+                                kind: TeenyCompilerErrorKind::TypeMismatch(
+                                    Type::Int,
+                                    rhs_ty,
+                                ),
+                            });
+                        }
+                    },
                     _ => {
                         return Err(TeenyCompilerError {
                             span: expr.span,

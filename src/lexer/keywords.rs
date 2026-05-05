@@ -15,7 +15,6 @@ pub static KEYWORDS: LazyLock<HashMap<&'static str, TokenKind>> =
         hm.insert("if", If);
         hm.insert("else", Else);
         hm.insert("while", While);
-        hm.insert("for", For);
         hm.insert("repeat", Repeat);
         hm.insert("struct", Struct);
         hm.insert("true", True);

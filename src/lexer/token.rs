@@ -46,7 +46,6 @@ pub enum TokenKind {
     Comma,
     Dot,
     Colon,
-    ColonColon,
     Arrow,
 
     Integer(u16),
@@ -59,7 +58,6 @@ pub enum TokenKind {
     If,
     Else,
     While,
-    For,
     Repeat,
     Struct,
     True,

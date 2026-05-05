@@ -69,9 +69,6 @@ impl<'a> TypeChecker<'a> {
                             SymbolKind::Fn { return_type, .. } => {
                                 Some(return_type.clone().unwrap_or(Type::Void))
                             },
-                            SymbolKind::Struct { .. } => {
-                                Some(Type::Struct(name.clone()))
-                            },
                         }
                     })
                 })
@@ -79,30 +76,6 @@ impl<'a> TypeChecker<'a> {
                     span: expr.span,
                     kind: TeenyCompilerErrorKind::CannotInferType,
                 })?,
-
-            ExprKind::Array(items) if !items.is_empty() => {
-                let first_ty = self.infer_type(&items[0])?;
-
-                for item in items.iter().skip(1) {
-                    let item_ty = self.infer_type(item)?;
-                    if item_ty != first_ty {
-                        return Err(TeenyCompilerError {
-                            span: item.span,
-                            kind: TeenyCompilerErrorKind::TypeMismatch(
-                                first_ty, item_ty,
-                            ),
-                        });
-                    }
-                }
-
-                first_ty
-            },
-            ExprKind::Array(_) => {
-                return Err(TeenyCompilerError {
-                    span: expr.span,
-                    kind: TeenyCompilerErrorKind::CannotInferType,
-                });
-            },
 
             ExprKind::Increment { .. } => Type::Int,
             ExprKind::Decrement { .. } => Type::Int,
@@ -293,41 +266,6 @@ impl<'a> TypeChecker<'a> {
                 }
 
                 return_type.clone().unwrap_or(Type::Void)
-            },
-
-            ExprKind::Subscript { array, index } => {
-                let arr_ty = self.infer_type(array)?;
-                let idx_ty = self.infer_type(index)?;
-
-                if idx_ty != Type::Int {
-                    return Err(TeenyCompilerError {
-                        span: index.span,
-                        kind: TeenyCompilerErrorKind::TypeMismatch(
-                            Type::Int,
-                            idx_ty,
-                        ),
-                    });
-                }
-
-                match arr_ty {
-                    Type::Array { ty, .. } => *ty,
-                    _ => {
-                        return Err(TeenyCompilerError {
-                            span: expr.span,
-                            kind: TeenyCompilerErrorKind::CannotInferType,
-                        });
-                    },
-                }
-            },
-
-            ExprKind::MemberAccess { object, name } => {
-                todo!()
-            },
-
-            ExprKind::StaticAccess { target, member } => todo!(),
-
-            ExprKind::StructInit { name, fields } => {
-                todo!()
             },
         };
 

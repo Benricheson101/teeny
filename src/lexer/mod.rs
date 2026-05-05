@@ -141,7 +141,6 @@ impl<'a> Lexer<'a> {
                     ';' => Semi,
                     ',' => Comma,
                     '.' => Dot,
-                    ':' if self.next_matches(':') => ColonColon,
                     ':' => Colon,
                     '~' => BitNot,
                     '^' => BitXor,
@@ -375,15 +374,14 @@ mod tests {
 
     #[test]
     fn tokenize_keywords() {
-        let lex = Lexer::new("if else return for while");
+        let lex = Lexer::new("if else return while");
         let tokens: Vec<_> = lex.collect();
 
         assert_eq!(tokens[0].kind, TokenKind::If);
         assert_eq!(tokens[1].kind, TokenKind::Else);
         assert_eq!(tokens[2].kind, TokenKind::Return);
-        assert_eq!(tokens[3].kind, TokenKind::For);
-        assert_eq!(tokens[4].kind, TokenKind::While);
-        assert_eq!(tokens[5].kind, TokenKind::Eof);
+        assert_eq!(tokens[3].kind, TokenKind::While);
+        assert_eq!(tokens[4].kind, TokenKind::Eof);
     }
 
     #[test]

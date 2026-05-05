@@ -38,7 +38,6 @@ pub enum TeenyCompilerErrorKind {
 
     IdentNotDefined(String),
     InvalidFnScope,
-    InvalidStructScope,
 
     TypeMismatch(Type, Type),
     CannotInferType,
@@ -70,11 +69,7 @@ impl fmt::Display for TeenyCompilerErrorKind {
             TeenyCompilerErrorKind::InvalidFnScope => {
                 write!(f, "Functions can only be declared in the global scope")
             },
-            TeenyCompilerErrorKind::InvalidStructScope => {
-                write!(f, "Structs can only be declared in the global scope")
-            },
             TeenyCompilerErrorKind::TypeMismatch(a, b) => {
-                use miette::NamedSource;
                 write!(f, "Type mismatch, expected {a:?} got {b:?}")
             },
             TeenyCompilerErrorKind::CannotInferType => {

@@ -442,12 +442,6 @@ impl Visitor for CodeGenerator {
                 return_type,
                 body,
             } => self.visit_fn(span, name, params, return_type, body),
-            StmtKind::Struct { name, members } => {
-                self.visit_struct(span, name, members)
-            },
-            StmtKind::StructField { name, ty } => {
-                self.visit_struct_field(span, name, ty)
-            },
         }
     }
 

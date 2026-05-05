@@ -10,7 +10,6 @@ pub trait Visitor {
             ExprKind::Integer(i) => self.visit_integer(span, *i),
             ExprKind::Bool(b) => self.visit_bool(span, *b),
             ExprKind::Ident(ident) => self.visit_ident(span, ident),
-            ExprKind::Array(exprs) => self.visit_array(span, exprs),
             ExprKind::Increment { prefix, expr } => {
                 self.visit_increment(span, *prefix, expr)
             },
@@ -27,18 +26,6 @@ pub trait Visitor {
             ExprKind::Call { callee, args } => {
                 self.visit_call(span, callee, args)
             },
-            ExprKind::Subscript { array, index } => {
-                self.visit_subscript(span, array, index)
-            },
-            ExprKind::MemberAccess { object, name } => {
-                self.visit_member_access(span, object, name)
-            },
-            ExprKind::StaticAccess { target, member } => {
-                self.visit_static_access(span, target, member)
-            },
-            ExprKind::StructInit { name, fields } => {
-                self.visit_struct_init(span, name, fields)
-            },
         }
     }
 
@@ -53,12 +40,6 @@ pub trait Visitor {
     }
 
     fn visit_ident(&mut self, _span: Span, _ident: &String) {
-    }
-
-    fn visit_array(&mut self, _span: Span, exprs: &[Expr]) {
-        for expr in exprs {
-            self.visit_expr(expr);
-        }
     }
 
     fn visit_increment(&mut self, _span: Span, _prefix: bool, expr: &Expr) {
@@ -96,41 +77,6 @@ pub trait Visitor {
         }
     }
 
-    fn visit_subscript(&mut self, _span: Span, array: &Expr, index: &Expr) {
-        self.visit_expr(array);
-        self.visit_expr(index);
-    }
-
-    fn visit_member_access(
-        &mut self,
-        _span: Span,
-        object: &Expr,
-        _name: &String,
-    ) {
-        self.visit_expr(object);
-    }
-
-    fn visit_static_access(
-        &mut self,
-        _span: Span,
-        target: &Expr,
-        _member: &String,
-    ) {
-        self.visit_expr(target);
-    }
-
-    fn visit_struct_init(
-        &mut self,
-        _span: Span,
-        name: &Expr,
-        fields: &[(String, Expr)],
-    ) {
-        self.visit_expr(name);
-        for (_name, field) in fields {
-            self.visit_expr(field);
-        }
-    }
-
     fn visit_stmt(&mut self, stmt: &Stmt) {
         let span = stmt.span;
         let id = stmt.id;
@@ -158,12 +104,6 @@ pub trait Visitor {
                 return_type,
                 body,
             } => self.visit_fn(span, name, params, return_type, body),
-            StmtKind::Struct { name, members } => {
-                self.visit_struct(span, name, members)
-            },
-            StmtKind::StructField { name, ty } => {
-                self.visit_struct_field(span, name, ty)
-            },
         }
     }
 
@@ -219,15 +159,6 @@ pub trait Visitor {
         body: &Stmt,
     ) {
         self.visit_stmt(body);
-    }
-
-    fn visit_struct(&mut self, _span: Span, _name: &String, members: &[Stmt]) {
-        for member in members {
-            self.visit_stmt(member);
-        }
-    }
-
-    fn visit_struct_field(&mut self, _span: Span, _name: &String, _ty: &Type) {
     }
 }
 
@@ -294,17 +225,6 @@ mod tests {
     }
 
     #[test]
-    fn test_visit_array() {
-        let arr = spanned(ExprKind::Array(vec![
-            spanned(ExprKind::Integer(0)),
-            spanned(ExprKind::Integer(1)),
-            spanned(ExprKind::Integer(2)),
-        ]));
-
-        test_expr!(arr, integer_count = 3);
-    }
-
-    #[test]
     fn test_visit_increment() {
         let expr = spanned(ExprKind::Increment {
             prefix: true,
@@ -362,49 +282,6 @@ mod tests {
             args: vec![
                 spanned(ExprKind::Integer(1)),
                 spanned(ExprKind::Integer(2)),
-            ],
-        });
-
-        test_expr!(expr, ident_count = 1, integer_count = 2)
-    }
-
-    #[test]
-    fn test_visit_subscript() {
-        let expr = spanned(ExprKind::Subscript {
-            array: boxed(ExprKind::Ident("arr".to_string())),
-            index: boxed(ExprKind::Ident("i".to_string())),
-        });
-
-        test_expr!(expr, ident_count = 2)
-    }
-
-    #[test]
-    fn test_visit_member_access() {
-        let expr = spanned(ExprKind::MemberAccess {
-            object: boxed(ExprKind::Ident("obj".to_string())),
-            name: "x".to_string(),
-        });
-
-        test_expr!(expr, ident_count = 1)
-    }
-
-    #[test]
-    fn test_visit_static_access() {
-        let expr = spanned(ExprKind::StaticAccess {
-            target: boxed(ExprKind::Ident("ivt".to_string())),
-            member: "register".to_string(),
-        });
-
-        test_expr!(expr, ident_count = 1)
-    }
-
-    #[test]
-    fn test_visit_struct_init() {
-        let expr = spanned(ExprKind::StructInit {
-            name: boxed(ExprKind::Ident("Point".to_string())),
-            fields: vec![
-                ("x".to_string(), spanned(ExprKind::Integer(1))),
-                ("y".to_string(), spanned(ExprKind::Integer(2))),
             ],
         });
 
@@ -508,24 +385,5 @@ mod tests {
         });
 
         test_stmt!(stmt, integer_count = 1)
-    }
-
-    #[test]
-    fn test_visit_struct() {
-        let stmt = spanned(StmtKind::Struct {
-            name: "Point".to_string(),
-            members: vec![
-                spanned(StmtKind::StructField {
-                    name: "x".to_string(),
-                    ty: Type::Int,
-                }),
-                spanned(StmtKind::StructField {
-                    name: "y".to_string(),
-                    ty: Type::Int,
-                }),
-            ],
-        });
-
-        test_stmt!(stmt, integer_count = 0, bool_count = 0, ident_count = 0)
     }
 }

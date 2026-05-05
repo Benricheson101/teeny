@@ -50,8 +50,7 @@ impl Precedence {
             LeftShift | RightShift => Self::BitShift,
             Plus | Minus => Self::Sum,
             Star | Slash | Percent => Self::Product,
-            LeftParen | LeftBrace | Dot | LeftBracket | PlusPlus
-            | ColonColon | MinusMinus => Precedence::Call,
+            LeftParen | PlusPlus | MinusMinus => Precedence::Call,
             _ => Self::Lowest,
         }
     }

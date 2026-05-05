@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     error::{TeenyCompilerError, TeenyCompilerErrorKind},
-    parser::ast::{Expr, Span, Stmt, StmtKind, Type},
+    parser::ast::{Expr, Span, Stmt, Type},
     visitor::Visitor,
 };
 
@@ -23,10 +23,6 @@ pub enum SymbolKind {
         params: Vec<(String, Type)>,
         return_type: Option<Type>,
     },
-
-    Struct {
-        fields: Vec<(String, Type)>,
-    },
 }
 
 pub type Scope = HashMap<String, Symbol>;
@@ -34,7 +30,6 @@ pub type Scope = HashMap<String, Symbol>;
 pub struct SymbolResolver {
     scopes: Vec<Scope>,
     pub errors: Vec<TeenyCompilerError>,
-    in_struct_decl: bool,
 }
 
 impl SymbolResolver {
@@ -42,7 +37,6 @@ impl SymbolResolver {
         Self {
             scopes: vec![Scope::new()],
             errors: vec![],
-            in_struct_decl: false,
         }
     }
 
@@ -125,7 +119,7 @@ impl Visitor for SymbolResolver {
         return_type: &Option<Type>,
         body: &Stmt,
     ) {
-        if !self.is_global_scope() && !self.in_struct_decl {
+        if !self.is_global_scope() {
             self.errors.push(TeenyCompilerError {
                 span,
                 kind: TeenyCompilerErrorKind::InvalidFnScope,
@@ -155,42 +149,6 @@ impl Visitor for SymbolResolver {
 
         self.visit_stmt(body);
 
-        self.exit_scope();
-    }
-
-    fn visit_struct(&mut self, span: Span, name: &String, members: &[Stmt]) {
-        if !self.is_global_scope() {
-            self.errors.push(TeenyCompilerError {
-                span,
-                kind: TeenyCompilerErrorKind::InvalidStructScope,
-            });
-            return;
-        }
-
-        let struct_fields: Vec<(String, Type)> = members
-            .iter()
-            .filter_map(|m| match &m.node {
-                StmtKind::StructField { name, ty, .. } => {
-                    Some((name.clone(), ty.clone()))
-                },
-                _ => None,
-            })
-            .collect();
-
-        // TODO: check if already exists
-        self.insert(Symbol {
-            name: name.clone(),
-            kind: SymbolKind::Struct {
-                fields: struct_fields,
-            },
-        });
-
-        self.enter_scope();
-        self.in_struct_decl = true;
-        for member in members {
-            self.visit_stmt(member);
-        }
-        self.in_struct_decl = false;
         self.exit_scope();
     }
 

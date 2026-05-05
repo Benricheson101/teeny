@@ -109,21 +109,6 @@ impl Parser {
         }
     }
 
-    fn consume_integer(&mut self) -> ParseResult<u16> {
-        let token = self.peek();
-
-        match token.kind {
-            TokenKind::Integer(val) => {
-                self.advance();
-                Ok(val)
-            },
-            _ => Err(ParseError {
-                message: format!("Expected integer, got {:?}", token),
-                span: Span::new(token.start, token.end),
-            }),
-        }
-    }
-
     fn synchronize(&mut self) {
         self.advance();
 
@@ -176,7 +161,6 @@ impl Parser {
             TokenKind::LeftBrace => self.parse_block(),
             TokenKind::Return => self.parse_return(),
             TokenKind::Fn => self.parse_fn_decl(),
-            TokenKind::Struct => self.parse_struct_decl(),
             _ => self.parse_expr_stmt(),
         }
     }
@@ -190,38 +174,18 @@ impl Parser {
     }
 
     /// ```ebnf
-    /// type = "int"
-    ///      | "bool"
-    ///      | IDENTIFIER
-    ///      | "*" type
-    ///      | "[" type ";" INTEGER "]" ;
+    /// type = "int" | "bool" | "*" type ;
     /// ```
     fn parse_type(&mut self) -> ParseResult<Type> {
         if self.matches(TokenKind::Star) {
             return Ok(Type::Pointer(Box::new(self.parse_type()?)));
         }
 
-        if self.matches(TokenKind::LeftBracket) {
-            let elem_type = self.parse_type()?;
-            self.consume(TokenKind::Semi)?;
-
-            let size = self.consume_integer()?;
-
-            self.consume(TokenKind::RightBracket)?;
-
-            return Ok(Type::Array {
-                ty: Box::new(elem_type),
-                size: size as u16,
-            });
-        }
-
         match &self.advance().kind {
             TokenKind::Int => Ok(Type::Int),
             TokenKind::Bool => Ok(Type::Bool),
-            TokenKind::Ident(name) => Ok(Type::Struct(name.clone())),
             t @ _ => Err(ParseError {
                 message: format!("Expected type, got {:?}", t),
-                // span: Span::new(t.start, t.end),
                 span: {
                     let prev = self.prev();
                     Span::new(prev.start, prev.end)
@@ -355,22 +319,12 @@ impl Parser {
 
         let mut params = Vec::new();
 
-        let mut is_first = true;
         if !self.check(&TokenKind::RightParen) {
             loop {
-                if is_first
-                    && self.peek().kind == TokenKind::Ident("self".to_string())
-                {
-                    params.push(("self".to_string(), Type::SelfType));
-                    is_first = false;
-                    self.advance();
-                } else {
-                    let name = self.consume_ident()?;
-                    self.consume(TokenKind::Colon)?;
-                    let ty = self.parse_type()?;
-
-                    params.push((name, ty));
-                }
+                let name = self.consume_ident()?;
+                self.consume(TokenKind::Colon)?;
+                let ty = self.parse_type()?;
+                params.push((name, ty));
 
                 if !self.check(&TokenKind::Comma) {
                     break;
@@ -398,76 +352,6 @@ impl Parser {
             },
             span,
         ))
-    }
-
-    /// ```ebnf
-    /// struct_decl = "struct" IDENTIFIER "{" { struct_member } "}" ;
-    ///
-    /// struct_member = field_decl
-    ///               | function_decl ;
-    ///
-    /// field_decl = IDENTIFIER ":" type [ "," ] ;
-    /// ```
-    fn parse_struct_decl(&mut self) -> ParseResult<Stmt> {
-        let start = self.consume(TokenKind::Struct)?;
-        let name = self.consume_ident()?;
-        self.consume(TokenKind::LeftBrace)?;
-
-        let mut members = Vec::new();
-
-        while !self.check(&TokenKind::RightBrace) {
-            if self.check(&TokenKind::Fn) {
-                members.push(self.parse_fn_decl()?);
-            } else {
-                let start = self.peek().start;
-
-                let field_name = self.consume_ident()?;
-                self.consume(TokenKind::Colon)?;
-                let field_type = self.parse_type()?;
-
-                let end = self.prev().end;
-                let span = Span::new(start, end);
-
-                // FIXME: make it so trailing comma is allowed but commas are otherwise required
-                self.matches(TokenKind::Comma);
-
-                members.push(Stmt::new(
-                    StmtKind::StructField {
-                        name: field_name,
-                        ty: field_type,
-                    },
-                    span,
-                ));
-            }
-        }
-
-        let end = self.consume(TokenKind::RightBrace)?;
-
-        let span = Span::new(start.start, end.end);
-
-        Ok(Stmt::new(StmtKind::Struct { name, members }, span))
-    }
-
-    fn parse_struct_init_fields(&mut self) -> ParseResult<Vec<(String, Expr)>> {
-        let mut fields = Vec::new();
-        while !self.check(&TokenKind::RightBrace) {
-            let name = self.consume_ident()?;
-            let val = if self.matches(TokenKind::Colon) {
-                self.parse_expr(Precedence::Lowest)?
-            } else {
-                let prev = self.prev();
-                let span = Span::new(prev.start, prev.end);
-                Expr::new(ExprKind::Ident(name.clone()), span)
-            };
-
-            fields.push((name, val));
-
-            if !self.matches(TokenKind::Comma) {
-                break;
-            }
-        }
-
-        Ok(fields)
     }
 
     // -- pratt parsing for expressions --
@@ -520,11 +404,6 @@ impl Parser {
                     },
                     span,
                 ))
-            },
-
-            TokenKind::LeftBracket => {
-                let elems = self.parse_expr_list(TokenKind::RightBracket)?;
-                Ok(Expr::new(ExprKind::Array(elems), span))
             },
 
             tk @ (TokenKind::Minus
@@ -660,75 +539,6 @@ impl Parser {
                     ExprKind::Call {
                         callee: Box::new(lhs),
                         args,
-                    },
-                    span,
-                ))
-            },
-
-            TokenKind::LeftBracket => {
-                let index = self.parse_expr(Precedence::Lowest)?;
-                self.consume(TokenKind::RightBracket)?;
-                let span = Span::merge(lhs.span, index.span);
-
-                Ok(Expr::new(
-                    ExprKind::Subscript {
-                        array: Box::new(lhs),
-                        index: Box::new(index),
-                    },
-                    span,
-                ))
-            },
-
-            TokenKind::Dot => {
-                let name = self.consume_ident()?;
-                let span =
-                    Span::new(lhs.span.start, self.source[self.cur - 1].end);
-
-                Ok(Expr::new(
-                    ExprKind::MemberAccess {
-                        object: Box::new(lhs),
-                        name,
-                    },
-                    span,
-                ))
-            },
-
-            TokenKind::ColonColon => {
-                let member = self.consume_ident()?;
-                let span =
-                    Span::new(lhs.span.start, self.source[self.cur - 1].end);
-
-                Ok(Expr::new(
-                    ExprKind::StaticAccess {
-                        target: Box::new(lhs),
-                        member,
-                    },
-                    span,
-                ))
-            },
-
-            TokenKind::LeftBrace => {
-                match lhs.node {
-                    ExprKind::Ident(_)
-                    | ExprKind::MemberAccess { .. }
-                    | ExprKind::StaticAccess { .. } => {},
-                    _ => {
-                        return Err(ParseError {
-                            message: "Struct init must follow a type name"
-                                .to_string(),
-                            span: lhs.span,
-                        });
-                    },
-                }
-
-                let fields = self.parse_struct_init_fields()?;
-                let end_token = self.consume(TokenKind::RightBrace)?;
-                let span = Span::new(lhs.span.start, end_token.end);
-
-                Ok(Expr::new(
-                    ExprKind::StructInit {
-                        name: Box::new(lhs),
-                        fields,
                     },
                     span,
                 ))
@@ -891,60 +701,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_subscript() {
-        let expr = parse_expr("arr[5]");
-        let expected = ExprKind::Subscript {
-            array: Box::new(Expr::new(
-                ExprKind::Ident("arr".to_string()),
-                Span::new(0, 3),
-            )),
-            index: Box::new(Expr::new(ExprKind::Integer(5), Span::new(4, 5))),
-        };
-
-        assert_eq!(expr.node, expected);
-    }
-
-    #[test]
-    fn parse_member_accessor() {
-        let expr = parse_expr("user.name");
-        let expected = ExprKind::MemberAccess {
-            object: Box::new(Expr::new(
-                ExprKind::Ident("user".to_string()),
-                Span::new(0, 4),
-            )),
-            name: "name".to_string(),
-        };
-
-        assert_eq!(expr.node, expected);
-    }
-
-    #[test]
-    fn parse_static_accessor() {
-        let expr = parse_expr("User::new");
-        let expected = ExprKind::StaticAccess {
-            target: Box::new(Expr::new(
-                ExprKind::Ident("User".to_string()),
-                Span::new(0, 4),
-            )),
-            member: "new".to_string(),
-        };
-        assert_eq!(expr.node, expected);
-    }
-
-    #[test]
     fn parse_booleans() {
         let expr = parse_expr("true");
         let expected = ExprKind::Bool(true);
-        assert_eq!(expr.node, expected);
-    }
-
-    #[test]
-    fn parse_array_literal() {
-        let expr = parse_expr("[1, 2]");
-        let expected = ExprKind::Array(vec![
-            Expr::new(ExprKind::Integer(1), Span::new(1, 2)),
-            Expr::new(ExprKind::Integer(2), Span::new(4, 5)),
-        ]);
         assert_eq!(expr.node, expected);
     }
 
@@ -995,50 +754,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_struct_init() {
-        let expr = parse_expr("Point { x: 5, y: 0 }");
-        let expected = ExprKind::StructInit {
-            name: Box::new(Expr::new(
-                ExprKind::Ident("Point".to_string()),
-                Span::new(0, 5),
-            )),
-            fields: vec![
-                (
-                    "x".to_string(),
-                    Expr::new(ExprKind::Integer(5), Span::new(11, 12)),
-                ),
-                (
-                    "y".to_string(),
-                    Expr::new(ExprKind::Integer(0), Span::new(17, 18)),
-                ),
-            ],
-        };
-        assert_eq!(expr.node, expected);
-
-        let expr = parse_expr("Point { x, y: 3 }");
-        let expected = ExprKind::StructInit {
-            name: Box::new(Expr::new(
-                ExprKind::Ident("Point".to_string()),
-                Span::new(0, 5),
-            )),
-            fields: vec![
-                (
-                    "x".to_string(),
-                    Expr::new(
-                        ExprKind::Ident("x".to_string()),
-                        Span::new(8, 9),
-                    ),
-                ),
-                (
-                    "y".to_string(),
-                    Expr::new(ExprKind::Integer(3), Span::new(14, 15)),
-                ),
-            ],
-        };
-        assert_eq!(expr.node, expected);
-    }
-
-    #[test]
     fn parse_var_decl() {
         let s = parse_stmt("let x = 5;");
         assert_eq!(
@@ -1059,20 +774,6 @@ mod tests {
                 name: "x".to_string(),
                 value: Expr::new(ExprKind::Integer(5), Span::new(13, 14)),
                 mutable: true,
-            }
-        );
-
-        let s = parse_stmt("const x: [int; 3] = 5;");
-        assert_eq!(
-            s.node,
-            StmtKind::VarDecl {
-                ty: Some(Type::Array {
-                    ty: Box::new(Type::Int),
-                    size: 3,
-                }),
-                name: "x".to_string(),
-                value: Expr::new(ExprKind::Integer(5), Span::new(20, 21)),
-                mutable: false,
             }
         );
 
@@ -1172,29 +873,6 @@ mod tests {
         };
 
         assert_eq!(return_type, Some(Type::Pointer(Box::new(Type::Int))));
-    }
-
-    #[test]
-    fn parse_struct_decl() {
-        let stmt = parse_stmt(
-            "
-            struct User {
-                name: string,
-                id: int,
-
-                fn get_id(self) {
-                    return self.id;
-                }
-            }
-        ",
-        );
-
-        let StmtKind::Struct { name, members } = stmt.node else {
-            panic!("not struct");
-        };
-
-        assert_eq!(name, "User".to_string());
-        assert_eq!(members.len(), 3);
     }
 
     #[test]

@@ -68,8 +68,6 @@ pub enum ExprKind {
     Integer(u16),
     Bool(bool),
     Ident(String),
-    // String(String), // TODO: do we need this?
-    Array(Vec<Expr>),
 
     /// `x++`, `++x`
     Increment {
@@ -109,31 +107,6 @@ pub enum ExprKind {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
-
-    /// Array subscript (e.g. `arr[i]`)
-    Subscript {
-        array: Box<Expr>,
-        index: Box<Expr>,
-    },
-
-    /// Member access (e.g. `obj.x`)
-    MemberAccess {
-        object: Box<Expr>,
-        name: String,
-    },
-
-    /// Static access (e.g. `ivt::register`)
-    StaticAccess {
-        target: Box<Expr>,
-        member: String,
-    },
-
-    /// Struct initialization (e.g. `Point { x, y }`)
-    StructInit {
-        // allows access like `namespace.User`
-        name: Box<Expr>,
-        fields: Vec<(String, Expr)>,
-    },
 }
 
 pub type Expr = Spanned<ExprKind>;
@@ -143,9 +116,6 @@ pub enum Type {
     Int,
     Bool,
     Pointer(Box<Type>),
-    Array { ty: Box<Type>, size: u16 },
-    Struct(String),
-    SelfType,
     Void,
     Error, // special error type used in the compiler
 }
@@ -156,9 +126,6 @@ impl Type {
             Type::Int => 1,
             Type::Bool => 1,
             Type::Pointer(_) => 1,
-            Type::Array { size, ty } => ty.size() * size,
-            Type::Struct(_) => todo!("struct sizing not implemented yet"),
-            Type::SelfType => 1, // pointer to struct
             Type::Void => 0,
             Type::Error => 0,
         }
@@ -196,16 +163,6 @@ pub enum StmtKind {
         params: Vec<(String, Type)>,
         return_type: Option<Type>,
         body: Box<Stmt>,
-    },
-
-    Struct {
-        name: String,
-        members: Vec<Stmt>,
-    },
-
-    StructField {
-        name: String,
-        ty: Type,
     },
 }
 

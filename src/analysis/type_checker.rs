@@ -163,14 +163,31 @@ impl<'a> TypeChecker<'a> {
                 );
 
                 if lhs_ty != rhs_ty && !is_int_bool_cmp {
-                    if let Type::Pointer(_) = lhs_ty {
-                        if rhs_ty == Type::Int {
-                            if *op == TokenKind::Plus || *op == TokenKind::Minus
-                            {
-                                return Ok(lhs_ty);
-                            }
-                        }
+                    let either_is_ptr = matches!(lhs_ty, Type::Pointer(_))
+                        || matches!(rhs_ty, Type::Pointer(_));
+                    let is_cmp_op = matches!(
+                        op,
+                        TokenKind::Equality
+                            | TokenKind::BangEqual
+                            | TokenKind::Lt
+                            | TokenKind::Lte
+                            | TokenKind::Gt
+                            | TokenKind::Gte
+                    );
+
+                    // ptr + int → ptr, ptr - int → ptr
+                    if matches!(lhs_ty, Type::Pointer(_))
+                        && rhs_ty == Type::Int
+                        && (*op == TokenKind::Plus || *op == TokenKind::Minus)
+                    {
+                        return Ok(lhs_ty);
                     }
+
+                    // any comparison involving a pointer → bool
+                    if either_is_ptr && is_cmp_op {
+                        return Ok(Type::Bool);
+                    }
+
                     return Err(TeenyCompilerError {
                         span: expr.span,
                         kind: TeenyCompilerErrorKind::TypeMismatch(
@@ -579,6 +596,28 @@ mod tests {
     #[test]
     fn pointer_type_mismatch() {
         err("fn main() { let x: int = 5; let ptr: *bool = &x; }");
+    }
+
+    #[test]
+    fn pointer_cmp_int() {
+        ok("fn main() { let p: *int = 0x9000; let b: bool = p > 0x3; }");
+    }
+
+    #[test]
+    fn pointer_cmp_pointer() {
+        ok(
+            "fn main() { let x: int = 5; let p: *int = &x; let q: *int = &x; let b: bool = p == q; }",
+        );
+    }
+
+    #[test]
+    fn int_cmp_pointer() {
+        ok("fn main() { let p: *int = 0x9000; let b: bool = 0x3 < p; }");
+    }
+
+    #[test]
+    fn pointer_equality_int() {
+        ok("fn main() { let p: *int = 0x9000; let b: bool = p != 0; }");
     }
 
     #[test]

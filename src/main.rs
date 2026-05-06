@@ -20,7 +20,7 @@ use crate::error::print_errors;
 fn main() {
     let cli = cli::Cli::parse();
 
-    let expr = fs::read_to_string(cli.in_file).unwrap();
+    let expr = fs::read_to_string(&cli.in_file).unwrap();
 
     // println!("{expr}");
 
@@ -33,14 +33,16 @@ fn main() {
 
     // println!("{ast:#?}");
 
+    let filename = cli.in_file.to_str().unwrap_or("main.tny");
+
     if !errors.is_empty() {
-        print_errors(&expr, "main.tny", &errors);
+        print_errors(&expr, filename, &errors);
         process::exit(1);
     }
 
     let mut sr = SymbolResolver::new();
     if let Err(errors) = sr.check(&ast) {
-        print_errors(&expr, "main.tny", &errors);
+        print_errors(&expr, filename, &errors);
         process::exit(1);
     } else {
         let global_scope = sr.global_scope();
@@ -49,7 +51,7 @@ fn main() {
             tc.visit_stmt(stmt);
         }
 
-        print_errors(&expr, "main.tny", &tc.errors);
+        print_errors(&expr, filename, &tc.errors);
 
         if !tc.errors.is_empty() {
             process::exit(1);

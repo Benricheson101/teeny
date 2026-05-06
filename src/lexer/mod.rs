@@ -76,21 +76,22 @@ impl<'a> Lexer<'a> {
 
     fn integer(&mut self) -> u16 {
         // The leading '0' was already consumed by read_token; peek ahead for a
-        // base prefix.
+        // base prefix. Underscores are allowed between digits for readability
+        // (e.g. 1_000, 0xFF_FF, 0b1010_0101) and are stripped before parsing.
         if self.source.peek() == Some(&'x') || self.source.peek() == Some(&'X')
         {
             self.advance(); // consume 'x'
             let start = self.pos;
             while let Some(ch) = self.source.peek()
-                && ch.is_ascii_hexdigit()
+                && (ch.is_ascii_hexdigit() || *ch == '_')
             {
                 self.advance();
             }
-            return u16::from_str_radix(
-                &self.source_string[start..self.pos],
-                16,
-            )
-            .unwrap();
+            let digits: String = self.source_string[start..self.pos]
+                .chars()
+                .filter(|c| *c != '_')
+                .collect();
+            return u16::from_str_radix(&digits, 16).unwrap();
         }
 
         if self.source.peek() == Some(&'b') || self.source.peek() == Some(&'B')
@@ -98,24 +99,28 @@ impl<'a> Lexer<'a> {
             self.advance(); // consume 'b'
             let start = self.pos;
             while let Some(ch) = self.source.peek()
-                && (*ch == '0' || *ch == '1')
+                && (*ch == '0' || *ch == '1' || *ch == '_')
             {
                 self.advance();
             }
-            return u16::from_str_radix(
-                &self.source_string[start..self.pos],
-                2,
-            )
-            .unwrap();
+            let digits: String = self.source_string[start..self.pos]
+                .chars()
+                .filter(|c| *c != '_')
+                .collect();
+            return u16::from_str_radix(&digits, 2).unwrap();
         }
 
         while let Some(ch) = self.source.peek()
-            && ch.is_ascii_digit()
+            && (ch.is_ascii_digit() || *ch == '_')
         {
             self.advance();
         }
 
-        self.source_string[self.start..self.pos].parse().unwrap()
+        let digits: String = self.source_string[self.start..self.pos]
+            .chars()
+            .filter(|c| *c != '_')
+            .collect();
+        digits.parse().unwrap()
     }
 
     fn ident(&mut self) -> TokenKind {
@@ -424,5 +429,13 @@ mod tests {
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(65535));
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(0));
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(5));
+    }
+
+    #[test]
+    fn tokenize_underscore_separators() {
+        let mut lex = Lexer::new("1_000 0xFF_FF 0b0000_1111");
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(1000));
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(65535));
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(15));
     }
 }

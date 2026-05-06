@@ -41,12 +41,15 @@ identifier = [a-zA-Z_] [a-zA-Z0-9_$]*
 
 Decimal, hexadecimal, and binary integer literals are supported. All values are stored as 16-bit unsigned and interpreted as signed at runtime.
 
+Underscores may be used anywhere within the digit sequence as visual separators and are ignored by the compiler.
+
 ```rs
-255       // decimal
-0xFF      // hexadecimal (case-insensitive prefix)
-0xBEEF
-0b10100   // binary (case-insensitive prefix)
-0b001
+255         // decimal
+1_000       // decimal with separator
+0xFF        // hexadecimal (case-insensitive prefix)
+0xAB_CD
+0b10100     // binary (case-insensitive prefix)
+0b0000_1111
 ```
 
 ### Boolean Literals
@@ -342,9 +345,9 @@ primary = DEC_INTEGER
         | IDENTIFIER
         | "(" expression ")" ;
 
-DEC_INTEGER = [0-9]+ ;
-HEX_INTEGER = "0x" [0-9a-fA-F]+ ;
-BIN_INTEGER = "0b" [01]+ ;
+DEC_INTEGER = [0-9] [0-9_]* ;
+HEX_INTEGER = "0x" [0-9a-fA-F] [0-9a-fA-F_]* ;
+BIN_INTEGER = "0b" [01] [01_]* ;
 
 arg_list = expression { "," expression } ;
 

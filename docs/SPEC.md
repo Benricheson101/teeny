@@ -39,12 +39,14 @@ identifier = [a-zA-Z_] [a-zA-Z0-9_$]*
 
 ### Integer Literals
 
-Decimal and hexadecimal integer literals are supported. All values are stored as 16-bit unsigned and interpreted as signed at runtime.
+Decimal, hexadecimal, and binary integer literals are supported. All values are stored as 16-bit unsigned and interpreted as signed at runtime.
 
 ```rs
 255       // decimal
 0xFF      // hexadecimal (case-insensitive prefix)
 0xBEEF
+0b10100   // binary (case-insensitive prefix)
+0b001
 ```
 
 ### Boolean Literals
@@ -332,11 +334,17 @@ prefix = ("-" | "!" | "~" | "*" | "&" | "++" | "--") prefix
 
 postfix = primary { "++" | "--" | "(" [ arg_list ] ")" } ;
 
-primary = INTEGER
+primary = DEC_INTEGER
+        | HEX_INTEGER
+        | BIN_INTEGER
         | "true"
         | "false"
         | IDENTIFIER
         | "(" expression ")" ;
+
+DEC_INTEGER = [0-9]+ ;
+HEX_INTEGER = "0x" [0-9a-fA-F]+ ;
+BIN_INTEGER = "0b" [01]+ ;
 
 arg_list = expression { "," expression } ;
 

@@ -75,20 +75,36 @@ impl<'a> Lexer<'a> {
     }
 
     fn integer(&mut self) -> u16 {
-        // Check for hex prefix: the first char ('0') was already consumed by
-        // read_token, so peek at the next char.
+        // The leading '0' was already consumed by read_token; peek ahead for a
+        // base prefix.
         if self.source.peek() == Some(&'x') || self.source.peek() == Some(&'X')
         {
             self.advance(); // consume 'x'
-            let hex_start = self.pos;
+            let start = self.pos;
             while let Some(ch) = self.source.peek()
                 && ch.is_ascii_hexdigit()
             {
                 self.advance();
             }
             return u16::from_str_radix(
-                &self.source_string[hex_start..self.pos],
+                &self.source_string[start..self.pos],
                 16,
+            )
+            .unwrap();
+        }
+
+        if self.source.peek() == Some(&'b') || self.source.peek() == Some(&'B')
+        {
+            self.advance(); // consume 'b'
+            let start = self.pos;
+            while let Some(ch) = self.source.peek()
+                && (*ch == '0' || *ch == '1')
+            {
+                self.advance();
+            }
+            return u16::from_str_radix(
+                &self.source_string[start..self.pos],
+                2,
             )
             .unwrap();
         }
@@ -399,5 +415,14 @@ mod tests {
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(255));
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(6699));
         assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(0));
+    }
+
+    #[test]
+    fn tokenize_binary_literals() {
+        let mut lex = Lexer::new("0b10100 0b1111111111111111 0b0 0B101");
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(20));
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(65535));
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(0));
+        assert_eq!(lex.next().unwrap().kind, TokenKind::Integer(5));
     }
 }

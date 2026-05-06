@@ -1,0 +1,313 @@
+const LCD_CURSOR          : *int = 0xA000; // Read/Write 	Puts a character at the cursor then advances the cursor bit15 = rotate 180; bit14 = flip horizontal; bit13 = flip vertical
+const LCD_CLEAR_SCREEN    : *int = 0xA001; // Write 	Clears the terminal (preserves cursor position)
+const LCD_MOVE_LEFT       : *int = 0xA002; // Read/Write 	Moves cursor X positions to the left does not wrap
+const LCD_MOVE_RIGHT      : *int = 0xA003; // Read/Write 	Moves cursor X positions to the right does not wrap
+const LCD_MOVE_UP         : *int = 0xA004; // Read/Write 	Moves cursor X positions up does not wrap
+const LCD_MOVE_DOWN       : *int = 0xA005; // Read/Write 	Moves cursor X positions down does not wrap
+const LCD_MOVE_LEFT_WRAP  : *int = 0xA006; // Read/Write 	Moves cursor X positions to the left does wrap
+const LCD_MOVE_RIGHT_WRAP : *int = 0xA007; // Read/Write 	Moves cursor X positions to the right does wrap
+const LCD_MOVE_UP_WRAP    : *int = 0xA008; // Read/Write 	Moves cursor X positions up does wrap
+const LCD_MOVE_DOWN_WRAP  : *int = 0xA009; // Read/Write 	Moves cursor X positions down does wrap
+const LCD_CURSOR_X        : *int = 0xA00A; // Read/Write 	Sets the cursor's x to the value does wrap
+const LCD_CURSOR_Y        : *int = 0xA00B; // Read/Write 	Sets the cursor's y to the value does wrap
+const LCD_CURSOR_XY       : *int = 0xA00C; // Read/Write 	Sets the cursor's xy to the value does wrap byte1 = X; byte0 = Y
+const BUZZER_LEFT         : *int = 0xA010; // Write 	Plays sine/triange wave on left buzzer at given frequency bit15 = triangle wave
+const BUZZER_RIGHT        : *int = 0xA011; // Write 	Plays sine/triange wave on right buzzer at given frequency bit15 = triange wave
+const FADER_LEFT          : *int = 0xA020; // Read 	Returns value between 0-100 based on left fader's position
+const FADER_RIGHT         : *int = 0xA021; // Read 	Returns value between 0-100 based on right fader's position
+
+const TNY_RANDOM          : *int = 0x8010;
+const TNY_WALL_TIME       : *int = 0x8094;
+const TNY_WALL_TIME_RESET : *int = 0x8095;
+const TNY_PORT_A_DIR      : *int = 0x8000;
+const TNY_PORT_A          : *int = 0x8002;
+const TNY_PORT_B_DIR: *int = 0x8001;
+const TNY_PORT_B: *int = 0x8003;
+
+const TONE: int = 700;
+const TIME_UNIT_MS: int = 65;
+
+const kA: int = 0x41;
+const kB: int = 0x42;
+const kC: int = 0x43;
+const kD: int = 0x44;
+const kE: int = 0x45;
+const kF: int = 0x46;
+const kG: int = 0x47;
+const kH: int = 0x48;
+const kI: int = 0x49;
+const kJ: int = 0x4a;
+const kK: int = 0x4b;
+const kL: int = 0x4c;
+const kM: int = 0x4d;
+const kN: int = 0x4e;
+const kO: int = 0x4f;
+const kP: int = 0x50;
+const kQ: int = 0x51;
+const kR: int = 0x52;
+const kS: int = 0x53;
+const kT: int = 0x54;
+const kU: int = 0x55;
+const kV: int = 0x56;
+const kW: int = 0x57;
+const kX: int = 0x58;
+const kY: int = 0x59;
+const kZ: int = 0x5a;
+
+const PRESS_LEFT: int = 1;
+const PRESS_UP: int = 2;
+const PRESS_RIGHT: int = 4;
+const PRESS_DOWN: int = 8;
+const PRESS_Q: int = 2768;
+
+fn default_message() {
+    // enter text with dpad
+
+    *LCD_CURSOR_XY = 0b00000000_00000000;
+
+    *LCD_CURSOR = kE;
+    *LCD_CURSOR = kN;
+    *LCD_CURSOR = kT;
+    *LCD_CURSOR = kE;
+    *LCD_CURSOR = kR;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kT;
+    *LCD_CURSOR = kE;
+    *LCD_CURSOR = kX;
+    *LCD_CURSOR = kT;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kW;
+    *LCD_CURSOR = kI;
+    *LCD_CURSOR = kT;
+    *LCD_CURSOR = kH;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kD;
+    *LCD_CURSOR = kP;
+    *LCD_CURSOR = kA;
+    *LCD_CURSOR = kD;
+
+    // then press Q to play
+
+    *LCD_CURSOR_XY = 0b00000000_00000001;
+
+    *LCD_CURSOR = kT;
+    *LCD_CURSOR = kH;
+    *LCD_CURSOR = kE;
+    *LCD_CURSOR = kN;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kP;
+    *LCD_CURSOR = kR;
+    *LCD_CURSOR = kE;
+    *LCD_CURSOR = kS;
+    *LCD_CURSOR = kS;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kQ;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kT;
+    *LCD_CURSOR = kO;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kP;
+    *LCD_CURSOR = kL;
+    *LCD_CURSOR = kA;
+    *LCD_CURSOR = kY;
+
+    // it in morse code
+
+    *LCD_CURSOR_XY = 0b00000000_00000010;
+
+    *LCD_CURSOR = kI;
+    *LCD_CURSOR = kT;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kI;
+    *LCD_CURSOR = kN;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kM;
+    *LCD_CURSOR = kO;
+    *LCD_CURSOR = kR;
+    *LCD_CURSOR = kS;
+    *LCD_CURSOR = kE;
+    *LCD_MOVE_RIGHT = 1;
+    *LCD_CURSOR = kC;
+    *LCD_CURSOR = kO;
+    *LCD_CURSOR = kD;
+    *LCD_CURSOR = kE;
+}
+
+fn sleep(ms: int) {
+    *TNY_WALL_TIME_RESET = 0;
+
+    let end = ms / 63;
+    let now = *TNY_WALL_TIME;
+    while (now < end) {
+        now = *TNY_WALL_TIME;
+    }
+}
+
+fn clamp_chr(c: int) -> int {
+    if (c > kZ) {
+        return kA;
+    }
+
+    if (c < kA) {
+        return kZ;
+    }
+
+    return c;
+}
+
+fn zero_input(input: *int) {
+    let i = 0;
+    while (i < 80) {
+        *(input + i++) = 0;
+    }
+}
+
+fn dit() {
+    *BUZZER_LEFT = TONE;
+    sleep(TIME_UNIT_MS);
+    *BUZZER_LEFT = 0;
+    sleep(TIME_UNIT_MS);
+}
+
+fn dah() {
+    *BUZZER_LEFT = TONE;
+    sleep(TIME_UNIT_MS * 3);
+    *BUZZER_LEFT = 0;
+    sleep(TIME_UNIT_MS);
+}
+
+fn init_morse_table() {
+    let tbl: *int = 0x6200;
+    *(tbl + 0)  = 0b0001_010; // A  ·−
+    *(tbl + 1)  = 0b1000_100; // B  −···
+    *(tbl + 2)  = 0b1010_100; // C  −·−·
+    *(tbl + 3)  = 0b0100_011; // D  −··
+    *(tbl + 4)  = 0b0000_001; // E  ·
+    *(tbl + 5)  = 0b0010_100; // F  ··−·
+    *(tbl + 6)  = 0b0110_011; // G  −−·
+    *(tbl + 7)  = 0b0000_100; // H  ····
+    *(tbl + 8)  = 0b0000_010; // I  ··
+    *(tbl + 9)  = 0b0111_100; // J  ·−−−
+    *(tbl + 10) = 0b0101_011; // K  −·−
+    *(tbl + 11) = 0b0100_100; // L  ·−··
+    *(tbl + 12) = 0b0011_010; // M  −−
+    *(tbl + 13) = 0b0010_010; // N  −·
+    *(tbl + 14) = 0b0111_011; // O  −−−
+    *(tbl + 15) = 0b0110_100; // P  ·−−·
+    *(tbl + 16) = 0b1101_100; // Q  −−·−
+    *(tbl + 17) = 0b0010_011; // R  ·−·
+    *(tbl + 18) = 0b0000_011; // S  ···
+    *(tbl + 19) = 0b0001_001; // T  −
+    *(tbl + 20) = 0b0001_011; // U  ··−
+    *(tbl + 21) = 0b0001_100; // V  ···−
+    *(tbl + 22) = 0b0011_011; // W  ·−−
+    *(tbl + 23) = 0b1001_100; // X  −··−
+    *(tbl + 24) = 0b1011_100; // Y  −·−−
+    *(tbl + 25) = 0b1100_100; // Z  −−··
+}
+
+fn get_morse(chr: int) {
+    if (chr < kA || chr > kZ) {
+        sleep(TIME_UNIT_MS * 7);
+        return;
+    }
+
+    let tbl: *int = 0x6200;
+    let bits = *(tbl + chr - kA);
+
+    let len = bits & 0b111;
+    let sym = (bits >> 3) & 0x0f;
+
+
+    let display = 0;
+    let i = len - 1;
+    while (i >= 0) {
+        display *= 10;
+        display += (sym >> i) & 0b1;
+        i--;
+    }
+    *TNY_PORT_B = display;
+
+    i = 0;
+    while (i < len) {
+        if (sym & 0b1) {
+            dah();
+        } else {
+            dit();
+        }
+
+        sym = sym >> 1;
+        i++;
+    }
+
+    *TNY_PORT_B = 0;
+}
+
+fn main() {
+    init_morse_table();
+    *TNY_PORT_A_DIR = 0xFFFF;
+    *TNY_PORT_B_DIR = 0;
+
+    *LCD_CLEAR_SCREEN = 0;
+    default_message();
+
+    sleep(2500);
+
+    let input: *int = 0x6000;
+    let input_len: int = 5;
+
+    while (true) {
+        *LCD_CLEAR_SCREEN = 0;
+        *LCD_CURSOR_XY = 0b00000000_00000000;
+
+        zero_input(input);
+
+        let press = -1;
+
+        let cur: *int = input;
+        let last_press = 0;
+        while (((press = *TNY_PORT_A) & 1 << 15) == 0) {
+            *TNY_PORT_B = *cur;
+            if (last_press != press) {
+                last_press = press;
+
+                if (press == PRESS_UP) {
+                    let chr = *cur;
+                    if (chr == 0) {
+                        chr = kA;
+                    } else {
+                        chr = clamp_chr(chr + 1);
+                    }
+                    *cur = chr;
+                    *LCD_CURSOR = chr;
+                    *LCD_MOVE_LEFT = 1;
+                } else if (press == PRESS_DOWN) {
+                    let chr = *cur;
+                    chr = clamp_chr(chr - 1);
+                    *cur = chr;
+                    *LCD_CURSOR = chr;
+                    *LCD_MOVE_LEFT = 1;
+                } else if (press == PRESS_LEFT) {
+                    cur--;
+                    *LCD_MOVE_LEFT = 1;
+                } else if (press == PRESS_RIGHT) {
+                    cur++;
+                    *LCD_MOVE_RIGHT_WRAP = 1;
+                }
+
+                if (cur == input + input_len) {
+                    input_len++;
+                }
+            }
+        }
+
+        let i = 0;
+        while (i < input_len) {
+            let chr = *(input + i);
+            get_morse(chr);
+            sleep(TIME_UNIT_MS * 3);
+
+            i++;
+        }
+    }
+}
